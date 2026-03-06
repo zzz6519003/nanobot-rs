@@ -445,4 +445,125 @@ mod tests {
 
         let _ = fs::remove_dir_all(workspace);
     }
+
+    #[tokio::test]
+    async fn get_or_create_returns_cached_session() {
+        let workspace = temp_workspace("cache");
+        fs::create_dir_all(&workspace).expect("create workspace");
+        let manager = SessionManager::new(&workspace).expect("new session manager");
+
+        let session1 = manager.get_or_create("test:1").await.expect("first get");
+        let session2 = manager.get_or_create("test:1").await.expect("second get");
+
+        assert_eq!(session1.key, session2.key);
+        assert_eq!(session1.created_at, session2.created_at);
+
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[tokio::test]
+    async fn invalidate_removes_from_cache() {
+        let workspace = temp_workspace("invalidate");
+        fs::create_dir_all(&workspace).expect("create workspace");
+        let manager = SessionManager::new(&workspace).expect("new session manager");
+
+        let mut session = Session::new("test:invalidate");
+        session.messages.push(entry(MessageRole::User, "original"));
+        manager.save(&session).await.expect("save");
+
+        session.messages.push(entry(MessageRole::Assistant, "reply"));
+        manager.save(&session).await.expect("save again");
+
+        manager.invalidate("test:invalidate").await;
+
+        let loaded = manager.get_or_create("test:invalidate").await.expect("reload");
+        assert_eq!(loaded.messages.len(), 2);
+
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn session_clear_resets_messages_and_consolidation() {
+        let mut session = Session::new("test:clear");
+        session.messages.push(entry(MessageRole::User, "msg1"));
+        session.messages.push(entry(MessageRole::Assistant, "msg2"));
+        session.last_consolidated = 2;
+
+        session.clear();
+
+        assert!(session.messages.is_empty());
+        assert_eq!(session.last_consolidated, 0);
+        assert_eq!(session.key, "test:clear");
+    }
+
+    #[test]
+    fn get_history_respects_max_messages() {
+        let mut session = Session::new("test:max");
+        for i in 0..10 {
+            session.messages.push(entry(
+                if i % 2 == 0 { MessageRole::User } else { MessageRole::Assistant },
+                &format!("msg{}", i),
+            ));
+        }
+
+        let history = session.get_history(3);
+        assert!(history.len() <= 3);
+    }
+
+    #[test]
+    fn get_history_handles_empty_session() {
+        let session = Session::new("test:empty");
+        let history = session.get_history(10);
+        assert!(history.is_empty());
+    }
+
+    #[test]
+    fn get_history_respects_last_consolidated() {
+        let mut session = Session::new("test:consolidated");
+        session.messages.push(entry(MessageRole::User, "old1"));
+        session.messages.push(entry(MessageRole::Assistant, "old2"));
+        session.last_consolidated = 2;
+        
+        session.messages.push(entry(MessageRole::User, "new1"));
+        session.messages.push(entry(MessageRole::Assistant, "new2"));
+
+        let history = session.get_history(10);
+        assert_eq!(history.len(), 2);
+        assert_eq!(history[0].content_as_text(), Some("new1"));
+        assert_eq!(history[1].content_as_text(), Some("new2"));
+    }
+
+    #[tokio::test]
+    async fn session_path_sanitizes_key() {
+        let workspace = temp_workspace("sanitize");
+        fs::create_dir_all(&workspace).expect("create workspace");
+        let manager = SessionManager::new(&workspace).expect("new session manager");
+
+        let path = manager.session_path("telegram:123/456");
+        let filename = path.file_name().unwrap().to_str().unwrap();
+        
+        assert!(!filename.contains('/'));
+        assert!(filename.ends_with(".jsonl"));
+
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[tokio::test]
+    async fn list_sessions_ignores_non_jsonl_files() {
+        let workspace = temp_workspace("list-filter");
+        fs::create_dir_all(&workspace).expect("create workspace");
+        let manager = SessionManager::new(&workspace).expect("new session manager");
+
+        let session = Session::new("test:valid");
+        manager.save(&session).await.expect("save");
+
+        let sessions_dir = workspace.join("sessions");
+        fs::write(sessions_dir.join("invalid.txt"), "not a session").expect("write txt");
+
+        let list = manager.list_sessions().expect("list");
+        assert_eq!(list.iter().filter(|s| s.key == "test:valid").count(), 1);
+        assert_eq!(list.iter().filter(|s| s.key.contains("invalid")).count(), 0);
+
+        let _ = fs::remove_dir_all(workspace);
+    }
 }

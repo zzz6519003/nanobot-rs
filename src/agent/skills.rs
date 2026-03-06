@@ -329,3 +329,254 @@ fn xml_escape(input: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn temp_workspace(case: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "nanobot-rs-skills-{}-{}",
+            case,
+            uuid::Uuid::new_v4()
+        ))
+    }
+
+    fn create_skill(workspace: &Path, name: &str, content: &str) {
+        let skill_dir = workspace.join("skills").join(name);
+        fs::create_dir_all(&skill_dir).expect("create skill dir");
+        fs::write(skill_dir.join("SKILL.md"), content).expect("write skill");
+    }
+
+    #[test]
+    fn parse_frontmatter_extracts_metadata() {
+        let content = r#"---
+description: Test skill
+always: true
+metadata: {"requires":{"bins":["git"]}}
+---
+
+# Skill content
+"#;
+        let meta = parse_frontmatter(content).expect("parse");
+        assert_eq!(meta.get("description"), Some(&"Test skill".to_string()));
+        assert_eq!(meta.get("always"), Some(&"true".to_string()));
+    }
+
+    #[test]
+    fn parse_frontmatter_returns_none_without_delimiter() {
+        let content = "# Just a heading\n\nNo frontmatter here.";
+        assert!(parse_frontmatter(content).is_none());
+    }
+
+    #[test]
+    fn strip_frontmatter_removes_yaml_block() {
+        let content = r#"---
+key: value
+---
+
+Content here"#;
+        let stripped = strip_frontmatter(content);
+        assert_eq!(stripped, "Content here");
+    }
+
+    #[test]
+    fn strip_frontmatter_preserves_content_without_frontmatter() {
+        let content = "# Heading\n\nContent";
+        let stripped = strip_frontmatter(content);
+        assert_eq!(stripped, content);
+    }
+
+    #[test]
+    fn xml_escape_handles_special_chars() {
+        assert_eq!(xml_escape("a&b"), "a&amp;b");
+        assert_eq!(xml_escape("<tag>"), "&lt;tag&gt;");
+        assert_eq!(xml_escape("a<b&c>d"), "a&lt;b&amp;c&gt;d");
+    }
+
+    #[test]
+    fn list_skills_finds_workspace_skills() {
+        let workspace = temp_workspace("list");
+        create_skill(&workspace, "test-skill", "# Test");
+
+        let loader = SkillsLoader::new(&workspace);
+        let skills = loader.list_skills(false);
+
+        assert_eq!(skills.len(), 1);
+        assert_eq!(skills[0].name, "test-skill");
+        assert_eq!(skills[0].source, "workspace");
+
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn list_skills_workspace_overrides_builtin() {
+        let workspace = temp_workspace("override");
+        create_skill(&workspace, "common-skill", "# Workspace version");
+
+        let loader = SkillsLoader::new(&workspace);
+        let skills = loader.list_skills(false);
+
+        // Should only have workspace version
+        let common = skills.iter().filter(|s| s.name == "common-skill").count();
+        assert!(common <= 1);
+
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn load_skill_returns_content() {
+        let workspace = temp_workspace("load");
+        create_skill(&workspace, "my-skill", "# My Skill\n\nContent here");
+
+        let loader = SkillsLoader::new(&workspace);
+        let content = loader.load_skill("my-skill").expect("load");
+
+        assert!(content.contains("My Skill"));
+        assert!(content.contains("Content here"));
+
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn load_skill_returns_none_for_missing() {
+        let workspace = temp_workspace("missing");
+        fs::create_dir_all(&workspace).expect("create workspace");
+
+        let loader = SkillsLoader::new(&workspace);
+        assert!(loader.load_skill("nonexistent").is_none());
+
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn get_always_skills_filters_by_metadata() {
+        let workspace = temp_workspace("always");
+        create_skill(
+            &workspace,
+            "always-on",
+            r#"---
+always: true
+---
+# Always loaded"#,
+        );
+        create_skill(&workspace, "manual", "# Manual skill");
+
+        let loader = SkillsLoader::new(&workspace);
+        let always = loader.get_always_skills();
+
+        assert!(always.contains(&"always-on".to_string()));
+        assert!(!always.contains(&"manual".to_string()));
+
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn load_skills_for_context_combines_multiple() {
+        let workspace = temp_workspace("context");
+        create_skill(&workspace, "skill1", "# Skill 1");
+        create_skill(&workspace, "skill2", "# Skill 2");
+
+        let loader = SkillsLoader::new(&workspace);
+        let context = loader.load_skills_for_context(&[
+            "skill1".to_string(),
+            "skill2".to_string(),
+        ]);
+
+        assert!(context.contains("Skill: skill1"));
+        assert!(context.contains("Skill: skill2"));
+        assert!(context.contains("---"));
+
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn build_skills_summary_generates_xml() {
+        let workspace = temp_workspace("summary");
+        create_skill(
+            &workspace,
+            "test-skill",
+            r#"---
+description: A test skill
+---
+# Content"#,
+        );
+
+        let loader = SkillsLoader::new(&workspace);
+        let summary = loader.build_skills_summary();
+
+        assert!(summary.contains("<skills>"));
+        assert!(summary.contains("<name>test-skill</name>"));
+        assert!(summary.contains("<description>A test skill</description>"));
+        assert!(summary.contains("</skills>"));
+
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn skill_meta_normalize_prefers_nanobot_node() {
+        let node = SkillMetaNode {
+            always: Some(false),
+            requires: SkillRequirements::default(),
+            nanobot: Some(Box::new(SkillMetaNode {
+                always: Some(true),
+                requires: SkillRequirements::default(),
+                nanobot: None,
+                openclaw: None,
+            })),
+            openclaw: None,
+        };
+
+        let meta = node.normalize();
+        assert!(meta.always);
+    }
+
+    #[test]
+    fn check_requirements_validates_bins_and_env() {
+        let workspace = temp_workspace("requirements");
+        let loader = SkillsLoader::new(&workspace);
+
+        // Test with a binary that should exist
+        let meta_with_sh = SkillMeta {
+            always: false,
+            requires: SkillRequirements {
+                bins: vec!["sh".to_string()],
+                env: vec![],
+            },
+        };
+        assert!(loader.check_requirements(&meta_with_sh));
+
+        // Test with a binary that shouldn't exist
+        let meta_with_fake = SkillMeta {
+            always: false,
+            requires: SkillRequirements {
+                bins: vec!["nonexistent-binary-xyz".to_string()],
+                env: vec![],
+            },
+        };
+        assert!(!loader.check_requirements(&meta_with_fake));
+
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn missing_requirements_lists_unavailable() {
+        let workspace = temp_workspace("missing-req");
+        let loader = SkillsLoader::new(&workspace);
+
+        let meta = SkillMeta {
+            always: false,
+            requires: SkillRequirements {
+                bins: vec!["fake-cli-tool".to_string()],
+                env: vec!["FAKE_ENV_VAR".to_string()],
+            },
+        };
+
+        let missing = loader.missing_requirements(&meta);
+        assert!(missing.iter().any(|m| m.contains("fake-cli-tool")));
+        assert!(missing.iter().any(|m| m.contains("FAKE_ENV_VAR")));
+
+        let _ = fs::remove_dir_all(workspace);
+    }
+}
