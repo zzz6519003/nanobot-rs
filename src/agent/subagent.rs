@@ -11,6 +11,7 @@ use crate::agent::skills::SkillsLoader;
 use crate::agent::spawn_service::SpawnService;
 use crate::bus::{InboundMessage, MessageBus, MessageMetadata};
 use crate::error::Result;
+use crate::observability::TARGET_SUBAGENT;
 use crate::provider::{
     AssistantFunctionCall, AssistantToolCall, ChatMessage, ChatRequest, LLMProvider,
 };
@@ -95,7 +96,12 @@ impl SubagentManager {
             sessions.entry(session).or_default().insert(task_id);
         }
 
-        info!("spawned subagent [{}]: {}", task_id, display_label);
+        info!(
+            target: TARGET_SUBAGENT,
+            "spawned subagent [{}]: {}",
+            task_id,
+            display_label
+        );
         format!(
             "Subagent [{}] started (id: {}). I'll notify you when it completes.",
             display_label, task_id
@@ -150,7 +156,12 @@ impl SubagentManager {
         origin_channel: &str,
         origin_chat_id: &str,
     ) {
-        info!("subagent [{}] starting: {}", task_id, label);
+        info!(
+            target: TARGET_SUBAGENT,
+            "subagent [{}] starting: {}",
+            task_id,
+            label
+        );
 
         let tool_context = ToolContext {
             channel: origin_channel.to_string(),
@@ -174,7 +185,7 @@ impl SubagentManager {
 
         match outcome {
             Ok(result) => {
-                info!("subagent [{}] completed", task_id);
+                info!(target: TARGET_SUBAGENT, "subagent [{}] completed", task_id);
                 announce_result_impl(
                     &task_id.to_string(),
                     label,
@@ -187,7 +198,12 @@ impl SubagentManager {
                 );
             }
             Err(err) => {
-                error!("subagent [{}] failed: {}", task_id, err);
+                error!(
+                    target: TARGET_SUBAGENT,
+                    "subagent [{}] failed: {}",
+                    task_id,
+                    err
+                );
                 announce_result_impl(
                     &task_id.to_string(),
                     label,
@@ -261,7 +277,7 @@ impl SpawnService for SubagentManager {
 
                 match outcome {
                     Ok(result) => {
-                        info!("subagent [{}] completed", task_id);
+                        info!(target: TARGET_SUBAGENT, "subagent [{}] completed", task_id);
                         announce_result_impl(
                             &task_id.to_string(),
                             &display_label,
@@ -274,7 +290,12 @@ impl SpawnService for SubagentManager {
                         );
                     }
                     Err(err) => {
-                        error!("subagent [{}] failed: {}", task_id, err);
+                        error!(
+                            target: TARGET_SUBAGENT,
+                            "subagent [{}] failed: {}",
+                            task_id,
+                            err
+                        );
                         announce_result_impl(
                             &task_id.to_string(),
                             &display_label,
@@ -299,7 +320,12 @@ impl SpawnService for SubagentManager {
             sessions.entry(session).or_default().insert(task_id);
         }
 
-        info!("spawned subagent [{}]: {}", task_id, display_label);
+        info!(
+            target: TARGET_SUBAGENT,
+            "spawned subagent [{}]: {}",
+            task_id,
+            display_label
+        );
         format!(
             "Subagent [{}] started (id: {}). I'll notify you when it completes.",
             display_label, task_id
@@ -472,7 +498,11 @@ fn announce_result_impl(
 
     // Inject as system message to trigger main agent
     if let Err(err) = bus.publish_inbound(msg) {
-        error!("failed to publish subagent result: {}", err);
+        error!(
+            target: TARGET_SUBAGENT,
+            "failed to publish subagent result: {}",
+            err
+        );
     }
 }
 

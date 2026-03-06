@@ -9,6 +9,7 @@ use tokio::sync::{Mutex, RwLock};
 use tokio::task::JoinHandle;
 use tracing::{error, info};
 
+use crate::observability::TARGET_HEARTBEAT;
 use crate::provider::{ChatMessage, ChatRequest, LLMProvider};
 use crate::tools::base::{JsonSchema, ToolDefinition, parse_args};
 use crate::types::heartbeat::HeartbeatDecisionArgs;
@@ -70,7 +71,7 @@ impl HeartbeatService {
 
     pub async fn start(self: &Arc<Self>) {
         if !self.enabled {
-            info!("heartbeat disabled");
+            info!(target: TARGET_HEARTBEAT, "heartbeat disabled");
             return;
         }
         if self.running.swap(true, Ordering::SeqCst) {
@@ -85,13 +86,17 @@ impl HeartbeatService {
                     break;
                 }
                 if let Err(err) = this.tick().await {
-                    error!("heartbeat tick failed: {}", err);
+                    error!(target: TARGET_HEARTBEAT, "heartbeat tick failed: {}", err);
                 }
             }
         });
 
         *self.task.lock().await = Some(handle);
-        info!("heartbeat started (every {}s)", self.interval_s);
+        info!(
+            target: TARGET_HEARTBEAT,
+            "heartbeat started (every {}s)",
+            self.interval_s
+        );
     }
 
     pub async fn stop(&self) {
@@ -107,7 +112,7 @@ impl HeartbeatService {
         let (action, tasks) = match self.decide(&content).await {
             Ok(v) => v,
             Err(err) => {
-                error!("heartbeat decide failed: {}", err);
+                error!(target: TARGET_HEARTBEAT, "heartbeat decide failed: {}", err);
                 return None;
             }
         };
@@ -119,7 +124,7 @@ impl HeartbeatService {
         let response = match handler.on_execute(tasks).await {
             Ok(v) => v,
             Err(err) => {
-                error!("heartbeat execute failed: {}", err);
+                error!(target: TARGET_HEARTBEAT, "heartbeat execute failed: {}", err);
                 return None;
             }
         };

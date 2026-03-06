@@ -6,6 +6,7 @@ use tracing::warn;
 
 use crate::bus::OutboundMessage;
 use crate::channels::base::ChannelAdapter;
+use crate::observability::TARGET_CHANNELS;
 
 pub struct PlaceholderChannel {
     name: &'static str,
@@ -30,6 +31,7 @@ impl ChannelAdapter for PlaceholderChannel {
     async fn start(&self) -> Result<()> {
         self.running.store(true, Ordering::SeqCst);
         warn!(
+            target: TARGET_CHANNELS,
             "channel '{}' is enabled but not implemented in nanobot-rs yet",
             self.name
         );
@@ -43,6 +45,7 @@ impl ChannelAdapter for PlaceholderChannel {
 
     async fn send(&self, msg: OutboundMessage) -> Result<()> {
         warn!(
+            target: TARGET_CHANNELS,
             "dropping outbound for unimplemented channel '{}': {}",
             self.name, msg.chat_id
         );

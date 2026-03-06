@@ -12,6 +12,7 @@ use crate::channels::cli::CliChannel;
 use crate::channels::placeholder::PlaceholderChannel;
 use crate::channels::telegram::TelegramChannel;
 use crate::config::schema::{ChannelsConfig, GenericChannelConfig};
+use crate::observability::TARGET_CHANNELS;
 
 pub struct ChannelManager {
     config: ChannelsConfig,
@@ -59,7 +60,12 @@ impl ChannelManager {
     pub async fn start_all(&self) -> Result<()> {
         for (name, ch) in &self.channels {
             if let Err(err) = ch.start().await {
-                error!("failed to start channel '{}': {}", name, err);
+                error!(
+                    target: TARGET_CHANNELS,
+                    "failed to start channel '{}': {}",
+                    name,
+                    err
+                );
             }
         }
 
@@ -69,7 +75,7 @@ impl ChannelManager {
         let send_tool_hints = self.config.send_tool_hints;
 
         let handle = tokio::spawn(async move {
-            info!("outbound dispatcher started");
+            info!(target: TARGET_CHANNELS, "outbound dispatcher started");
             let mut outbound_rx = bus.subscribe_outbound();
             loop {
                 let Ok(msg) = outbound_rx.recv().await else {
@@ -80,10 +86,15 @@ impl ChannelManager {
                 }
                 if let Some(channel) = channels.get(&msg.channel) {
                     if let Err(err) = channel.send(msg).await {
-                        error!("failed to send outbound via '{}': {}", channel.name(), err);
+                        error!(
+                            target: TARGET_CHANNELS,
+                            "failed to send outbound via '{}': {}",
+                            channel.name(),
+                            err
+                        );
                     }
                 } else {
-                    warn!("unknown channel '{}'", msg.channel);
+                    warn!(target: TARGET_CHANNELS, "unknown channel '{}'", msg.channel);
                 }
             }
         });
@@ -97,7 +108,12 @@ impl ChannelManager {
         }
         for (name, ch) in &self.channels {
             if let Err(err) = ch.stop().await {
-                error!("failed to stop channel '{}': {}", name, err);
+                error!(
+                    target: TARGET_CHANNELS,
+                    "failed to stop channel '{}': {}",
+                    name,
+                    err
+                );
             }
         }
     }

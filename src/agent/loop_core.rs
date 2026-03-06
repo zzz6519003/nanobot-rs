@@ -10,6 +10,7 @@ use crate::agent::ContextBuilder;
 use crate::bus::{InboundMessage, MessageBus, MessageMetadata, OutboundMessage};
 use crate::config::schema::ChannelsConfig;
 use crate::error::Result;
+use crate::observability::TARGET_AGENT;
 use crate::provider::{ChatRequest, LLMProvider};
 use crate::session::{Session, SessionEntry, SessionManager};
 use crate::task_id::TaskId;
@@ -49,6 +50,7 @@ impl AgentLoop {
             && let Err(err) = mcp.connect_if_needed(&self.tools).await
         {
             error!(
+                target: TARGET_AGENT,
                 "failed to connect MCP servers (will retry on next message): {}",
                 err
             );
@@ -64,7 +66,7 @@ impl AgentLoop {
     pub async fn run(self: Arc<Self>) {
         *self.running.write().await = true;
         self.ensure_mcp_connected().await;
-        info!("agent loop started");
+        info!(target: TARGET_AGENT, "agent loop started");
 
         let mut inbound_rx = self.bus.subscribe_inbound();
 
@@ -237,7 +239,7 @@ impl AgentLoop {
                 }
             }
             Err(err) => {
-                error!("failed to process message: {}", err);
+                error!(target: TARGET_AGENT, "failed to process message: {}", err);
                 let _ = self.bus.publish_outbound(OutboundMessage {
                     channel,
                     chat_id,
@@ -466,7 +468,12 @@ impl AgentLoop {
 
                 // Use into_iter to move tool calls instead of cloning
                 for call in response.tool_calls {
-                    info!("tool call: {}({})", call.name, call.arguments_json);
+                    info!(
+                        target: TARGET_AGENT,
+                        "tool call: {}({})",
+                        call.name,
+                        call.arguments_json
+                    );
                     // TODO: suppport to response to user the tool call info
                     let result = match self
                         .tools
@@ -491,7 +498,7 @@ impl AgentLoop {
 
             let clean = strip_think(response.content.as_deref());
             if response.finish_reason == "error" {
-                warn!("LLM returned error: {:?}", clean);
+                warn!(target: TARGET_AGENT, "LLM returned error: {:?}", clean);
                 final_content = Some(clean.unwrap_or_else(|| {
                     "Sorry, I encountered an error calling the AI model.".to_string()
                 }));
@@ -627,9 +634,9 @@ fn tool_hint(calls: &[crate::provider::ToolCallRequest]) -> String {
 
 fn debug_progress(content: &str, tool_hint: bool) {
     if tool_hint {
-        info!("↳ [tool] {}", content);
+        info!(target: TARGET_AGENT, "↳ [tool] {}", content);
     } else {
-        info!("↳ {}", content);
+        info!(target: TARGET_AGENT, "↳ {}", content);
     }
 }
 

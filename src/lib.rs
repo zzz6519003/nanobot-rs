@@ -6,6 +6,7 @@ pub mod config;
 pub mod cron;
 pub mod error;
 pub mod heartbeat;
+pub mod observability;
 pub mod provider;
 pub mod runtime;
 pub mod session;

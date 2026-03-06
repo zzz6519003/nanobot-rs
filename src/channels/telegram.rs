@@ -11,6 +11,7 @@ use tracing::{error, info, warn};
 use crate::bus::{InboundMessage, MessageBus, MessageMetadata, OutboundMessage};
 use crate::channels::base::{ChannelAdapter, is_sender_allowed};
 use crate::config::schema::GenericChannelConfig;
+use crate::observability::TARGET_CHANNELS;
 use crate::types::channels::{TelegramSendMessage, TelegramUpdatesResponse};
 
 const TELEGRAM_API_DEFAULT: &str = "https://api.telegram.org";
@@ -88,7 +89,11 @@ impl ChannelAdapter for TelegramChannel {
                 let response = match request.send().await {
                     Ok(v) => v,
                     Err(err) => {
-                        warn!("telegram getUpdates request failed: {}", err);
+                        warn!(
+                            target: TARGET_CHANNELS,
+                            "telegram getUpdates request failed: {}",
+                            err
+                        );
                         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                         continue;
                     }
@@ -97,14 +102,18 @@ impl ChannelAdapter for TelegramChannel {
                 let payload: TelegramUpdatesResponse = match response.json().await {
                     Ok(v) => v,
                     Err(err) => {
-                        warn!("telegram getUpdates decode failed: {}", err);
+                        warn!(
+                            target: TARGET_CHANNELS,
+                            "telegram getUpdates decode failed: {}",
+                            err
+                        );
                         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                         continue;
                     }
                 };
 
                 if !payload.ok {
-                    warn!("telegram getUpdates returned ok=false");
+                    warn!(target: TARGET_CHANNELS, "telegram getUpdates returned ok=false");
                     continue;
                 }
 
@@ -138,14 +147,18 @@ impl ChannelAdapter for TelegramChannel {
                         session_key_override: None,
                     };
                     if let Err(err) = bus.publish_inbound(inbound) {
-                        error!("telegram publish inbound failed: {}", err);
+                        error!(
+                            target: TARGET_CHANNELS,
+                            "telegram publish inbound failed: {}",
+                            err
+                        );
                     }
                 }
             }
         });
 
         *self.poll_task.lock().await = Some(handle);
-        info!("telegram channel started");
+        info!(target: TARGET_CHANNELS, "telegram channel started");
         Ok(())
     }
 

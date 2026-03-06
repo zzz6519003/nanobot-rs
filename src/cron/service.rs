@@ -12,6 +12,7 @@ use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 
 use super::add_job_params::AddJobParams;
+use crate::observability::TARGET_CRON;
 #[cfg(test)]
 use crate::types::cron::CronSchedule;
 use crate::types::cron::{
@@ -72,12 +73,12 @@ impl CronService {
                     break;
                 }
                 if let Err(err) = this.on_timer().await {
-                    warn!("cron tick failed: {}", err);
+                    warn!(target: TARGET_CRON, "cron tick failed: {}", err);
                 }
             }
         });
         *self.timer_task.lock().await = Some(handle);
-        info!("cron service started");
+        info!(target: TARGET_CRON, "cron service started");
 
         Ok(())
     }
@@ -183,7 +184,7 @@ impl CronService {
 
         for id in due_ids {
             if let Err(err) = self.execute_job(&id).await {
-                error!("cron job {} failed: {}", id, err);
+                error!(target: TARGET_CRON, "cron job {} failed: {}", id, err);
             }
         }
 
@@ -202,6 +203,7 @@ impl CronService {
         };
 
         info!(
+            target: TARGET_CRON,
             "cron executing job '{}' ({})",
             job_snapshot.name, job_snapshot.id
         );
@@ -333,7 +335,12 @@ fn load_store_sync(path: &Path) -> (CronStore, Option<SystemTime>) {
             (store, modified)
         }
         Err(err) => {
-            warn!("failed to load cron store '{}': {}", path.display(), err);
+            warn!(
+                target: TARGET_CRON,
+                "failed to load cron store '{}': {}",
+                path.display(),
+                err
+            );
             (CronStore::default(), None)
         }
     }

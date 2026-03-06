@@ -19,6 +19,7 @@ use tracing::{error, info, warn};
 
 use crate::config::schema::MCPServerConfig;
 use crate::error::{NanobotError, Result};
+use crate::observability::TARGET_TOOLS;
 use crate::tools::base::{JsonSchema, Tool, ToolContext, ToolDefinition};
 use crate::tools::registry::ToolRegistry;
 
@@ -78,6 +79,7 @@ impl MCPManager {
         for (server_name, cfg) in &self.servers {
             if cfg.command.trim().is_empty() && cfg.url.trim().is_empty() {
                 warn!(
+                    target: TARGET_TOOLS,
                     "MCP server '{}': no command or url configured, skipping",
                     server_name
                 );
@@ -89,7 +91,12 @@ impl MCPManager {
                     let tool_defs = match session.list_tools().await {
                         Ok(v) => v,
                         Err(err) => {
-                            error!("MCP server '{}': list_tools failed: {}", server_name, err);
+                            error!(
+                                target: TARGET_TOOLS,
+                                "MCP server '{}': list_tools failed: {}",
+                                server_name,
+                                err
+                            );
                             continue;
                         }
                     };
@@ -106,6 +113,7 @@ impl MCPManager {
                         let name = wrapper.name().to_string();
                         if let Err(err) = registry.register_dynamic_tool(wrapper) {
                             warn!(
+                                target: TARGET_TOOLS,
                                 "MCP server '{}': failed to register tool '{}': {}",
                                 server_name, name, err
                             );
@@ -116,13 +124,19 @@ impl MCPManager {
                     }
 
                     info!(
+                        target: TARGET_TOOLS,
                         "MCP server '{}': connected, {} tools registered",
                         server_name, count
                     );
                     sessions.push(session);
                 }
                 Err(err) => {
-                    error!("MCP server '{}': failed to connect: {}", server_name, err);
+                    error!(
+                        target: TARGET_TOOLS,
+                        "MCP server '{}': failed to connect: {}",
+                        server_name,
+                        err
+                    );
                 }
             }
         }
@@ -268,7 +282,12 @@ impl MCPClientSession {
         if let Some(client) = client
             && let Err(err) = client.cancel().await
         {
-            warn!("MCP server '{}': close failed: {}", self.name, err);
+            warn!(
+                target: TARGET_TOOLS,
+                "MCP server '{}': close failed: {}",
+                self.name,
+                err
+            );
         }
     }
 }
