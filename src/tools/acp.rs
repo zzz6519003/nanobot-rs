@@ -39,13 +39,13 @@ impl Tool for ACPTool {
             "agent_id".to_string(),
             JsonSchema {
                 schema_type: JsonSchemaType::String,
-                description: Some("The ACP agent to use for the task".to_string()),
+                description: Some("The ACP agent to use: codex (OpenAI), claude (Anthropic), cursor (IDE), windsurf (Codeium), cline (open-source)".to_string()),
                 enum_values: Some(vec![
                     "codex".to_string(),
                     "claude".to_string(),
-                    "pi".to_string(),
-                    "gemini".to_string(),
-                    "opencode".to_string(),
+                    "cursor".to_string(),
+                    "windsurf".to_string(),
+                    "cline".to_string(),
                 ]),
                 properties: BTreeMap::new(),
                 required: Vec::new(),
@@ -85,7 +85,7 @@ impl Tool for ACPTool {
         
         ToolDefinition::function(
             self.name(),
-            "Execute a coding task using an ACP agent (codex, claude, pi, gemini, opencode). \
+            "Execute a coding task using an ACP agent (codex, claude, cursor, windsurf, cline). \
              Use this for complex coding tasks that require multiple file operations, \
              code generation, refactoring, or building complete features.",
             JsonSchema::object(properties, vec!["agent_id", "task"]),
