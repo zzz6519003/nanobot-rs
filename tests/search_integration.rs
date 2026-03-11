@@ -1,9 +1,9 @@
 use tempfile::TempDir;
 use tokio::fs;
 
-use nanobot_rs::tools::base::ToolContext;
+use nanobot_rs::tools::base::{Tool, ToolContext};
 use nanobot_rs::tools::config::SharedToolConfig;
-use nanobot_rs::tools::search::build_tools;
+use nanobot_rs::tools::search::{GrepCodeTool, SearchFilesTool};
 use nanobot_rs::types::SessionKey;
 
 #[tokio::test]
@@ -28,8 +28,7 @@ async fn search_files_finds_matches_in_test_directory() {
 
     let config = SharedToolConfig::new(workspace, false, Default::default(), Default::default());
 
-    let tools = build_tools(config);
-    let tool = tools.iter().find(|t| t.name() == "search_files").unwrap();
+    let tool = SearchFilesTool::new(config);
 
     let ctx = ToolContext {
         channel: "test".to_string(),
@@ -64,8 +63,7 @@ async fn grep_code_filters_by_language() {
 
     let config = SharedToolConfig::new(workspace, false, Default::default(), Default::default());
 
-    let tools = build_tools(config);
-    let tool = tools.iter().find(|t| t.name() == "grep_code").unwrap();
+    let tool = GrepCodeTool::new(config);
 
     let ctx = ToolContext {
         channel: "test".to_string(),
@@ -97,8 +95,7 @@ async fn search_files_respects_limit() {
 
     let config = SharedToolConfig::new(workspace, false, Default::default(), Default::default());
 
-    let tools = build_tools(config);
-    let tool = tools.iter().find(|t| t.name() == "search_files").unwrap();
+    let tool = SearchFilesTool::new(config);
 
     let ctx = ToolContext {
         channel: "test".to_string(),
@@ -131,8 +128,7 @@ async fn search_files_handles_no_matches() {
 
     let config = SharedToolConfig::new(workspace, false, Default::default(), Default::default());
 
-    let tools = build_tools(config);
-    let tool = tools.iter().find(|t| t.name() == "search_files").unwrap();
+    let tool = SearchFilesTool::new(config);
 
     let ctx = ToolContext {
         channel: "test".to_string(),
@@ -168,8 +164,7 @@ async fn search_files_supports_regex() {
 
     let config = SharedToolConfig::new(workspace, false, Default::default(), Default::default());
 
-    let tools = build_tools(config);
-    let tool = tools.iter().find(|t| t.name() == "search_files").unwrap();
+    let tool = SearchFilesTool::new(config);
 
     let ctx = ToolContext {
         channel: "test".to_string(),
@@ -200,8 +195,7 @@ async fn search_files_case_sensitive() {
 
     let config = SharedToolConfig::new(workspace, false, Default::default(), Default::default());
 
-    let tools = build_tools(config);
-    let tool = tools.iter().find(|t| t.name() == "search_files").unwrap();
+    let tool = SearchFilesTool::new(config);
 
     let ctx = ToolContext {
         channel: "test".to_string(),
@@ -241,8 +235,7 @@ async fn search_files_with_file_pattern() {
 
     let config = SharedToolConfig::new(workspace, false, Default::default(), Default::default());
 
-    let tools = build_tools(config);
-    let tool = tools.iter().find(|t| t.name() == "search_files").unwrap();
+    let tool = SearchFilesTool::new(config);
 
     let ctx = ToolContext {
         channel: "test".to_string(),
@@ -278,8 +271,7 @@ async fn search_files_with_subdirectory() {
 
     let config = SharedToolConfig::new(workspace, false, Default::default(), Default::default());
 
-    let tools = build_tools(config);
-    let tool = tools.iter().find(|t| t.name() == "search_files").unwrap();
+    let tool = SearchFilesTool::new(config);
 
     let ctx = ToolContext {
         channel: "test".to_string(),
@@ -304,8 +296,7 @@ async fn search_files_returns_error_for_nonexistent_path() {
 
     let config = SharedToolConfig::new(workspace, false, Default::default(), Default::default());
 
-    let tools = build_tools(config);
-    let tool = tools.iter().find(|t| t.name() == "search_files").unwrap();
+    let tool = SearchFilesTool::new(config);
 
     let ctx = ToolContext {
         channel: "test".to_string(),
@@ -337,8 +328,7 @@ async fn search_files_with_context_lines() {
 
     let config = SharedToolConfig::new(workspace, false, Default::default(), Default::default());
 
-    let tools = build_tools(config);
-    let tool = tools.iter().find(|t| t.name() == "search_files").unwrap();
+    let tool = SearchFilesTool::new(config);
 
     let ctx = ToolContext {
         channel: "test".to_string(),
@@ -374,8 +364,7 @@ async fn grep_code_uses_literal_search_by_default() {
 
     let config = SharedToolConfig::new(workspace, false, Default::default(), Default::default());
 
-    let tools = build_tools(config);
-    let tool = tools.iter().find(|t| t.name() == "grep_code").unwrap();
+    let tool = GrepCodeTool::new(config);
 
     let ctx = ToolContext {
         channel: "test".to_string(),
@@ -398,8 +387,7 @@ async fn search_files_handles_empty_workspace() {
 
     let config = SharedToolConfig::new(workspace, false, Default::default(), Default::default());
 
-    let tools = build_tools(config);
-    let tool = tools.iter().find(|t| t.name() == "search_files").unwrap();
+    let tool = SearchFilesTool::new(config);
 
     let ctx = ToolContext {
         channel: "test".to_string(),

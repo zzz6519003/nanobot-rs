@@ -1,15 +1,16 @@
 pub mod builder;
 pub mod context;
 pub mod loop_core;
-pub mod memory;
 pub mod react;
 pub mod skills;
 pub mod spawn_service;
 pub mod subagent;
+pub mod traits;
 
-pub use builder::{AgentConfig, AgentLoopBuilder};
-pub use context::ContextBuilder;
-pub use loop_core::AgentLoop;
-pub use react::{ExecutionContext, LoopExitReason, LoopOutcome, ReActExecutor};
-pub use spawn_service::SpawnService;
-pub use subagent::SubagentManager;
+pub use self::builder::{AgentConfig, AgentLoopBuilder};
+pub use self::context::ContextBuilder;
+pub use self::loop_core::AgentLoop;
+pub use self::react::{ExecutionContext, LoopExitReason, LoopOutcome, ReActExecutor};
+pub use self::spawn_service::SpawnService;
+pub use self::subagent::SubagentManager;
+pub use self::traits::ContextProvider;

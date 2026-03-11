@@ -1,6 +1,5 @@
 use std::path::Path;
 use std::process::Stdio;
-use std::sync::Arc;
 use std::sync::OnceLock;
 
 use async_trait::async_trait;
@@ -14,20 +13,6 @@ use crate::tools::base::{
     Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json,
 };
 use crate::tools::config::SharedToolConfig;
-
-pub fn build_tools(config: SharedToolConfig) -> Vec<Arc<dyn Tool>> {
-    vec![
-        Arc::new(SearchFilesTool::new(config.clone())),
-        Arc::new(GrepCodeTool::new(config)),
-    ]
-}
-
-pub fn definitions() -> Vec<ToolDefinition> {
-    vec![
-        SearchFilesTool::definition_static(),
-        GrepCodeTool::definition_static(),
-    ]
-}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -94,7 +79,7 @@ pub struct SearchFilesTool {
 }
 
 impl SearchFilesTool {
-    fn new(config: SharedToolConfig) -> Self {
+    pub fn new(config: SharedToolConfig) -> Self {
         Self { config }
     }
 
@@ -181,7 +166,7 @@ pub struct GrepCodeTool {
 }
 
 impl GrepCodeTool {
-    fn new(config: SharedToolConfig) -> Self {
+    pub fn new(config: SharedToolConfig) -> Self {
         Self { config }
     }
 

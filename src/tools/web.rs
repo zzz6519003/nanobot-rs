@@ -1,4 +1,4 @@
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 
 use async_trait::async_trait;
 use serde_json::json;
@@ -10,20 +10,6 @@ use crate::tools::base::{
 };
 use crate::tools::config::SharedToolConfig;
 use crate::types::tools::{BraveSearchResponse, WebFetchArgs, WebFetchResponse, WebSearchArgs};
-
-pub fn definitions() -> Vec<ToolDefinition> {
-    vec![
-        WebSearchTool::definition_static(),
-        WebFetchTool::definition_static(),
-    ]
-}
-
-pub fn build_tools(config: SharedToolConfig) -> Vec<Arc<dyn Tool>> {
-    vec![
-        Arc::new(WebSearchTool::new(config.clone())),
-        Arc::new(WebFetchTool::new(config)),
-    ]
-}
 
 pub struct WebSearchTool {
     config: SharedToolConfig,

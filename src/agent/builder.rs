@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 
-use crate::agent::{AgentLoop, ContextBuilder, SubagentManager};
+use crate::agent::{AgentLoop, ContextBuilder, ContextProvider, SubagentManager};
 use crate::bus::MessageBus;
 use crate::config::schema::{ExecToolConfig, MCPServerConfig, WebToolsConfig};
 use crate::cron::CronService;
@@ -169,7 +169,8 @@ impl AgentLoopBuilder {
     /// - Context builder initialization fails
     /// - Session manager initialization fails
     pub async fn build(self) -> Result<AgentLoop> {
-        let context = ContextBuilder::new(self.workspace.clone())?;
+        let context: Arc<dyn ContextProvider> =
+            Arc::new(ContextBuilder::new(self.workspace.clone())?);
         let store = JsonlSessionStore::new(&self.workspace).await?;
 
         // Build SessionManager with consolidation and memory providers

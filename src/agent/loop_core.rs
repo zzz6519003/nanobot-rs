@@ -9,7 +9,7 @@ use parking_lot::Mutex;
 use tokio::task::AbortHandle;
 use tracing::{Instrument, debug, debug_span, error, info, trace};
 
-use crate::agent::ContextBuilder;
+use crate::agent::ContextProvider;
 use crate::agent::react::{ExecutionContext, LoopOutcome, ModelConfig, ReActExecutor};
 use crate::bus::{InboundCommand, InboundMessage, MessageBus, MessageMetadata, OutboundMessage};
 use crate::error::Result;
@@ -34,7 +34,7 @@ pub struct AgentLoop {
     pub(crate) reasoning_effort: Option<String>,
     pub(crate) tools: Arc<ToolRegistry>,
     pub(crate) mcp: Option<Arc<MCPManager>>,
-    pub(crate) context: ContextBuilder,
+    pub(crate) context: Arc<dyn ContextProvider>,
     pub(crate) sessions: Arc<SessionManager>,
     pub(crate) running: Arc<AtomicBool>,
     pub(crate) session_locks: Arc<DashMap<SessionKey, Arc<tokio::sync::Mutex<()>>>>,

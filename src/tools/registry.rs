@@ -39,20 +39,24 @@ impl ToolRegistry {
             SharedToolConfig::new(workspace, restrict_to_workspace, exec_config, web_config);
 
         let mut tools: HashMap<String, Arc<dyn Tool>> = HashMap::new();
-        for tool in filesystem::build_tools(config.clone()) {
-            tools.insert(tool.name().to_string(), tool);
-        }
 
+        // Filesystem tools
+        tools.insert("read_file".to_string(), Arc::new(filesystem::ReadFileTool::new(config.clone())));
+        tools.insert("write_file".to_string(), Arc::new(filesystem::WriteFileTool::new(config.clone())));
+        tools.insert("edit_file".to_string(), Arc::new(filesystem::EditFileTool::new(config.clone())));
+        tools.insert("list_dir".to_string(), Arc::new(filesystem::ListDirTool::new(config.clone())));
+
+        // Shell tool
         let shell_tool = shell::build_tool(config.clone());
         tools.insert(shell_tool.name().to_string(), shell_tool);
 
-        for tool in web::build_tools(config.clone()) {
-            tools.insert(tool.name().to_string(), tool);
-        }
+        // Web tools
+        tools.insert("web_search".to_string(), Arc::new(web::WebSearchTool::new(config.clone())));
+        tools.insert("web_fetch".to_string(), Arc::new(web::WebFetchTool::new(config.clone())));
 
-        for tool in search::build_tools(config.clone()) {
-            tools.insert(tool.name().to_string(), tool);
-        }
+        // Search tools
+        tools.insert("search_files".to_string(), Arc::new(search::SearchFilesTool::new(config.clone())));
+        tools.insert("grep_code".to_string(), Arc::new(search::GrepCodeTool::new(config.clone())));
 
         let message_tool: Arc<dyn Tool> = Arc::new(MessageTool::new(bus));
         tools.insert(message_tool.name().to_string(), message_tool);

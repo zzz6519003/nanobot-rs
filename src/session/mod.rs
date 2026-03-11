@@ -1,6 +1,7 @@
 // pub mod consolidation;
 pub mod consolidation_strategy;
 pub mod memory_provider;
+pub mod memory_store;
 pub mod session_hook;
 pub mod session_manager;
 pub mod session_store;
@@ -10,6 +11,7 @@ pub mod types;
 
 pub use self::consolidation_strategy::*;
 pub use self::memory_provider::*;
+pub use self::memory_store::*;
 pub use self::session_hook::*;
 pub use self::session_manager::*;
 pub use self::session_store::*;

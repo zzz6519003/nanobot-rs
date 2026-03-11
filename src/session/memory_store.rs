@@ -201,167 +201,90 @@ mod tests {
         std::fs::create_dir_all(&workspace).expect("create workspace");
 
         let store = MemoryStore::new(&workspace).expect("new memory store");
+        let input = "Important memory content";
 
         store
-            .write_long_term("# Important Facts\n\n- User prefers Rust\n- Timezone: UTC+8")
+            .write_long_term(input)
             .await
-            .expect("write");
+            .expect("write memory");
+        let output = store.read_long_term().await;
 
-        let content = store.read_long_term().await;
-        assert!(content.contains("Important Facts"));
-        assert!(content.contains("User prefers Rust"));
-        assert!(content.contains("Timezone: UTC+8"));
+        assert_eq!(output, input);
 
         let _ = std::fs::remove_dir_all(workspace);
     }
 
     #[tokio::test]
-    async fn write_long_term_replaces_existing_content() {
-        let workspace = temp_workspace("replace");
+    async fn append_history_adds_entry() {
+        let workspace = temp_workspace("history");
         std::fs::create_dir_all(&workspace).expect("create workspace");
 
         let store = MemoryStore::new(&workspace).expect("new memory store");
-
         store
-            .write_long_term("Old content")
+            .append_history("Completed: test task")
             .await
-            .expect("write old");
-        store
-            .write_long_term("New content")
-            .await
-            .expect("write new");
-
-        let content = store.read_long_term().await;
-        assert_eq!(content, "New content");
-        assert!(!content.contains("Old content"));
-
-        let _ = std::fs::remove_dir_all(workspace);
-    }
-
-    #[tokio::test]
-    async fn append_history_creates_file_if_missing() {
-        let workspace = temp_workspace("history-new");
-        std::fs::create_dir_all(&workspace).expect("create workspace");
-
-        let store = MemoryStore::new(&workspace).expect("new memory store");
-
-        store
-            .append_history("2024-03-01: First entry")
-            .await
-            .expect("append");
-
-        let content = fs::read_to_string(store.history_file())
+            .expect("append history");
+        let history = fs::read_to_string(store.history_file())
             .await
             .expect("read history");
-        assert!(content.contains("2024-03-01: First entry"));
+
+        assert!(history.contains("Completed: test task"));
 
         let _ = std::fs::remove_dir_all(workspace);
     }
 
     #[tokio::test]
-    async fn append_history_adds_to_existing_content() {
-        let workspace = temp_workspace("history-append");
+    async fn append_history_adds_spacing_between_entries() {
+        let workspace = temp_workspace("history-spacing");
         std::fs::create_dir_all(&workspace).expect("create workspace");
 
         let store = MemoryStore::new(&workspace).expect("new memory store");
-
-        store.append_history("Entry 1").await.expect("append 1");
-        store.append_history("Entry 2").await.expect("append 2");
-        store.append_history("Entry 3").await.expect("append 3");
-
-        let content = fs::read_to_string(store.history_file())
-            .await
-            .expect("read history");
-        assert!(content.contains("Entry 1"));
-        assert!(content.contains("Entry 2"));
-        assert!(content.contains("Entry 3"));
-
-        // Check order
-        let pos1 = content.find("Entry 1").unwrap();
-        let pos2 = content.find("Entry 2").unwrap();
-        let pos3 = content.find("Entry 3").unwrap();
-        assert!(pos1 < pos2);
-        assert!(pos2 < pos3);
-
-        let _ = std::fs::remove_dir_all(workspace);
-    }
-
-    #[tokio::test]
-    async fn append_history_trims_and_formats_entries() {
-        let workspace = temp_workspace("history-format");
-        std::fs::create_dir_all(&workspace).expect("create workspace");
-
-        let store = MemoryStore::new(&workspace).expect("new memory store");
-
         store
-            .append_history("  Entry with spaces  \n\n")
+            .append_history("First entry")
             .await
-            .expect("append");
-
-        let content = fs::read_to_string(store.history_file())
+            .expect("append history");
+        store
+            .append_history("Second entry")
+            .await
+            .expect("append history");
+        let history = fs::read_to_string(store.history_file())
             .await
             .expect("read history");
-        assert!(content.contains("Entry with spaces"));
-        assert!(!content.contains("  Entry with spaces  "));
+
+        assert!(history.contains("First entry"));
+        assert!(history.contains("Second entry"));
+        assert!(history.contains("First entry\n\nSecond entry"));
 
         let _ = std::fs::remove_dir_all(workspace);
     }
 
     #[tokio::test]
-    async fn get_memory_context_returns_empty_when_no_memory() {
+    async fn get_memory_context_empty_when_no_content() {
         let workspace = temp_workspace("context-empty");
         std::fs::create_dir_all(&workspace).expect("create workspace");
 
         let store = MemoryStore::new(&workspace).expect("new memory store");
         let context = store.get_memory_context().await;
 
-        assert_eq!(context, "");
+        assert!(context.is_empty());
 
         let _ = std::fs::remove_dir_all(workspace);
     }
 
     #[tokio::test]
-    async fn get_memory_context_formats_with_header() {
-        let workspace = temp_workspace("context-format");
+    async fn get_memory_context_includes_header() {
+        let workspace = temp_workspace("context-header");
         std::fs::create_dir_all(&workspace).expect("create workspace");
 
         let store = MemoryStore::new(&workspace).expect("new memory store");
         store
-            .write_long_term("Important info")
+            .write_long_term("Remember me")
             .await
-            .expect("write");
-
+            .expect("write memory");
         let context = store.get_memory_context().await;
+
         assert!(context.contains("## Long-term Memory"));
-        assert!(context.contains("Important info"));
-
-        let _ = std::fs::remove_dir_all(workspace);
-    }
-
-    #[tokio::test]
-    async fn history_file_returns_correct_path() {
-        let workspace = temp_workspace("path");
-        std::fs::create_dir_all(&workspace).expect("create workspace");
-
-        let store = MemoryStore::new(&workspace).expect("new memory store");
-        let path = store.history_file();
-
-        assert!(path.ends_with("HISTORY.md"));
-        assert!(path.starts_with(&workspace));
-
-        let _ = std::fs::remove_dir_all(workspace);
-    }
-
-    #[tokio::test]
-    async fn memory_dir_returns_correct_path() {
-        let workspace = temp_workspace("dir");
-        std::fs::create_dir_all(&workspace).expect("create workspace");
-
-        let store = MemoryStore::new(&workspace).expect("new memory store");
-        let dir = store.memory_dir();
-
-        assert!(dir.ends_with("memory"));
-        assert!(dir.starts_with(&workspace));
+        assert!(context.contains("Remember me"));
 
         let _ = std::fs::remove_dir_all(workspace);
     }

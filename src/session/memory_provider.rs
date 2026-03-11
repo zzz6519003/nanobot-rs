@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 use super::traits::MemoryProvider;
-use crate::agent::memory::MemoryStore;
+use super::memory_store::MemoryStore;
 
 /// Example: Memory provider that combines multiple sources.
 pub struct CompositeMemoryProvider {

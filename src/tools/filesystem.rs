@@ -1,6 +1,5 @@
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::OnceLock;
 
 use async_trait::async_trait;
@@ -14,30 +13,12 @@ use crate::tools::base::{
 use crate::tools::config::SharedToolConfig;
 use crate::types::tools::{EditFileArgs, ListDirArgs, ReadFileArgs, WriteFileArgs};
 
-pub fn build_tools(config: SharedToolConfig) -> Vec<Arc<dyn Tool>> {
-    vec![
-        Arc::new(ReadFileTool::new(config.clone())),
-        Arc::new(WriteFileTool::new(config.clone())),
-        Arc::new(EditFileTool::new(config.clone())),
-        Arc::new(ListDirTool::new(config)),
-    ]
-}
-
-pub fn definitions() -> Vec<ToolDefinition> {
-    vec![
-        ReadFileTool::definition_static(),
-        WriteFileTool::definition_static(),
-        EditFileTool::definition_static(),
-        ListDirTool::definition_static(),
-    ]
-}
-
 pub struct ReadFileTool {
     config: SharedToolConfig,
 }
 
 impl ReadFileTool {
-    fn new(config: SharedToolConfig) -> Self {
+    pub fn new(config: SharedToolConfig) -> Self {
         Self { config }
     }
 
@@ -92,7 +73,7 @@ pub struct WriteFileTool {
 }
 
 impl WriteFileTool {
-    fn new(config: SharedToolConfig) -> Self {
+    pub fn new(config: SharedToolConfig) -> Self {
         Self { config }
     }
 
@@ -151,7 +132,7 @@ pub struct EditFileTool {
 }
 
 impl EditFileTool {
-    fn new(config: SharedToolConfig) -> Self {
+    pub fn new(config: SharedToolConfig) -> Self {
         Self { config }
     }
 
@@ -214,7 +195,7 @@ pub struct ListDirTool {
 }
 
 impl ListDirTool {
-    fn new(config: SharedToolConfig) -> Self {
+    pub fn new(config: SharedToolConfig) -> Self {
         Self { config }
     }
 

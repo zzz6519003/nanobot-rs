@@ -1,18 +1,18 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
+use async_trait::async_trait;
 use chrono::Local;
 
+use super::traits::ContextProvider;
 use crate::agent::skills::SkillsLoader;
 use crate::session::SessionManager;
 use crate::types::provider::{
     AssistantToolCall, ChatMessage, ContentPart, MessageContent, MessageRole,
 };
 
-const IDENTITY_PROMPT_TEMPLATE: &str =
-    "# nanobot :cat:\n\nYou are nanobot, a helpful AI assistant.\n\n## Runtime\nRust runtime\n\n## Workspace\nYour workspace is at: {workspace}\n- Long-term memory: {workspace}/memory/MEMORY.md\n- History log: {workspace}/memory/HISTORY.md\n- Custom skills: {workspace}/skills/{skill-name}/SKILL.md\n\n## nanobot Guidelines\n- State intent before tool calls, but NEVER predict or claim results before receiving them.\n- Before modifying a file, read it first. Do not assume files or directories exist.\n- After writing or editing a file, re-read it if accuracy matters.\n- If a tool call fails, analyze the error before retrying with a different approach.\n- Ask for clarification when the request is ambiguous.\n\nReply directly with text for conversations. Only use the 'message' tool to send to a specific chat channel.";
-const SKILLS_SUMMARY_PREAMBLE: &str =
-    "# Skills\n\nThe following skills extend your capabilities. To use a skill, read its SKILL.md file using the read_file tool.\nSkills with available=\"false\" need dependencies installed first - you can try installing them with apt/brew.\n\n";
+const IDENTITY_PROMPT_TEMPLATE: &str = "# nanobot :cat:\n\nYou are nanobot, a helpful AI assistant.\n\n## Runtime\nRust runtime\n\n## Workspace\nYour workspace is at: {workspace}\n- Long-term memory: {workspace}/memory/MEMORY.md\n- History log: {workspace}/memory/HISTORY.md\n- Custom skills: {workspace}/skills/{skill-name}/SKILL.md\n\n## nanobot Guidelines\n- State intent before tool calls, but NEVER predict or claim results before receiving them.\n- Before modifying a file, read it first. Do not assume files or directories exist.\n- After writing or editing a file, re-read it if accuracy matters.\n- If a tool call fails, analyze the error before retrying with a different approach.\n- Ask for clarification when the request is ambiguous.\n\nReply directly with text for conversations. Only use the 'message' tool to send to a specific chat channel.";
+const SKILLS_SUMMARY_PREAMBLE: &str = "# Skills\n\nThe following skills extend your capabilities. To use a skill, read its SKILL.md file using the read_file tool.\nSkills with available=\"false\" need dependencies installed first - you can try installing them with apt/brew.\n\n";
 
 // TODO: design a cache for context
 #[derive(Debug, Clone)]
@@ -130,13 +130,13 @@ impl ContextBuilder {
         &self,
         session_manager: &SessionManager,
         session_key: &str,
-        history: impl IntoIterator<Item = ChatMessage>,
+        history: Vec<ChatMessage>,
         current_message: &str,
         media: Option<&[String]>,
         channel: Option<&str>,
         chat_id: Option<&str>,
     ) -> Vec<ChatMessage> {
-        let runtime = Self::build_runtime_context(channel, chat_id);
+        let runtime = self.build_runtime_context(channel, chat_id);
         let user_content = self.build_user_content(current_message, media);
 
         let merged = match user_content {
@@ -225,7 +225,7 @@ impl ContextBuilder {
     /// # Returns
     ///
     /// Returns formatted runtime context as a string.
-    pub fn build_runtime_context(channel: Option<&str>, chat_id: Option<&str>) -> String {
+    pub fn build_runtime_context(&self, channel: Option<&str>, chat_id: Option<&str>) -> String {
         let now = Local::now();
         let mut lines = vec![format!(
             "Current Time: {} ({})",
@@ -282,6 +282,31 @@ impl ContextBuilder {
     }
 }
 
+#[async_trait]
+impl ContextProvider for ContextBuilder {
+    async fn build_messages(
+        &self,
+        session_manager: &SessionManager,
+        session_key: &str,
+        history: Vec<ChatMessage>,
+        current_message: &str,
+        media: Option<&[String]>,
+        channel: Option<&str>,
+        chat_id: Option<&str>,
+    ) -> Vec<ChatMessage> {
+        self.build_messages(
+            session_manager,
+            session_key,
+            history,
+            current_message,
+            media,
+            channel,
+            chat_id,
+        )
+        .await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -297,16 +322,28 @@ mod tests {
 
     #[test]
     fn build_runtime_context_includes_timestamp() {
-        let ctx = ContextBuilder::build_runtime_context(None, None);
+        let workspace = temp_workspace("runtime-ts");
+        std::fs::create_dir_all(&workspace).expect("create workspace");
+        let builder = ContextBuilder::new(workspace.clone()).expect("new builder");
+
+        let ctx = builder.build_runtime_context(None, None);
         assert!(ctx.contains("Current Time:"));
         assert!(ctx.contains(ContextBuilder::RUNTIME_CONTEXT_TAG));
+
+        let _ = std::fs::remove_dir_all(workspace);
     }
 
     #[test]
     fn build_runtime_context_includes_channel_and_chat_id() {
-        let ctx = ContextBuilder::build_runtime_context(Some("telegram"), Some("123456"));
+        let workspace = temp_workspace("runtime-channel");
+        std::fs::create_dir_all(&workspace).expect("create workspace");
+        let builder = ContextBuilder::new(workspace.clone()).expect("new builder");
+
+        let ctx = builder.build_runtime_context(Some("telegram"), Some("123456"));
         assert!(ctx.contains("Channel: telegram"));
         assert!(ctx.contains("Chat ID: 123456"));
+
+        let _ = std::fs::remove_dir_all(workspace);
     }
 
     #[test]
