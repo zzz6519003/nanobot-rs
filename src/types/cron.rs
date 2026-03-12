@@ -109,10 +109,15 @@ impl CronSchedule {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct CronPayload {
+    /// Payload kind (e.g., agent_turn).
     pub kind: String,
+    /// Message content to deliver or execute.
     pub message: String,
+    /// Whether to deliver message through channels.
     pub deliver: bool,
+    /// Optional target channel override.
     pub channel: Option<String>,
+    /// Optional target recipient identifier.
     pub to: Option<String>,
 }
 
@@ -132,9 +137,13 @@ impl Default for CronPayload {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct CronJobState {
+    /// Next scheduled run time in unix ms.
     pub next_run_at_ms: Option<i64>,
+    /// Last run time in unix ms.
     pub last_run_at_ms: Option<i64>,
+    /// Last execution status string.
     pub last_status: Option<String>,
+    /// Last execution error message, if any.
     pub last_error: Option<String>,
 }
 
@@ -153,14 +162,23 @@ impl Default for CronJobState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct CronJob {
+    /// Unique job identifier.
     pub id: String,
+    /// Human-readable job name.
     pub name: String,
+    /// Whether the job is enabled.
     pub enabled: bool,
+    /// Schedule configuration for the job.
     pub schedule: CronSchedule,
+    /// Payload to execute on each run.
     pub payload: CronPayload,
+    /// Runtime state for last/next runs.
     pub state: CronJobState,
+    /// Creation time in unix ms.
     pub created_at_ms: i64,
+    /// Update time in unix ms.
     pub updated_at_ms: i64,
+    /// Delete after a successful run (one-shot).
     pub delete_after_run: bool,
 }
 
@@ -200,8 +218,11 @@ impl Default for CronStore {
 /// Snapshot of cron service status.
 #[derive(Debug, Clone, Serialize)]
 pub struct CronStatus {
+    /// Whether the cron service is enabled.
     pub enabled: bool,
+    /// Number of registered jobs.
     pub jobs: usize,
+    /// Next wake time in unix ms, if scheduled.
     pub next_wake_at_ms: Option<i64>,
 }
 

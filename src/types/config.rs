@@ -10,13 +10,19 @@ use crate::utils::helpers::expand_tilde;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Config {
+    /// Agent configuration (defaults, memory, model selection).
     pub agents: AgentsConfig,
+    /// Channel adapter configuration and flags.
     pub channels: ChannelsConfig,
+    /// Provider configuration map.
     pub providers: ProvidersConfig,
+    /// Gateway server configuration.
     pub gateway: GatewayConfig,
+    /// Tool subsystem configuration.
     pub tools: ToolsConfig,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Optional ACP configuration for external agent tools.
     pub acp: Option<crate::acp::config::ACPConfig>,
 }
 
@@ -260,6 +266,7 @@ impl ProviderSpec {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AgentsConfig {
+    /// Default agent settings applied to all sessions.
     pub defaults: AgentDefaults,
 }
 
@@ -275,13 +282,21 @@ impl Default for AgentsConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AgentDefaults {
+    /// Base workspace directory for agent operations.
     pub workspace: String,
+    /// Default model identifier (provider/model).
     pub model: String,
+    /// Provider override ("auto" to infer from model).
     pub provider: String,
+    /// Max tokens for model responses.
     pub max_tokens: i32,
+    /// Sampling temperature for model responses.
     pub temperature: f32,
+    /// Maximum tool iterations per turn.
     pub max_tool_iterations: usize,
+    /// Number of recent messages to include in context.
     pub memory_window: usize,
+    /// Optional reasoning effort hint for supported providers.
     pub reasoning_effort: Option<String>,
 }
 
@@ -338,10 +353,15 @@ impl AgentDefaults {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ChannelsConfig {
+    /// Emit progress events during long-running tasks.
     pub send_progress: bool,
+    /// Emit tool hints when tools are invoked.
     pub send_tool_hints: bool,
+    /// Telegram channel configuration.
     pub telegram: GenericChannelConfig,
+    /// Discord channel configuration.
     pub discord: GenericChannelConfig,
+    /// Feishu channel configuration.
     pub feishu: GenericChannelConfig,
 }
 
@@ -361,9 +381,12 @@ impl Default for ChannelsConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct GenericChannelConfig {
+    /// Whether the channel adapter is enabled.
     pub enabled: bool,
+    /// Allowed sender IDs or chat IDs.
     pub allow_from: Vec<String>,
     #[serde(flatten)]
+    /// Adapter-specific extra fields.
     pub extra: HashMap<String, serde_json::Value>,
 }
 
@@ -381,9 +404,13 @@ impl Default for GenericChannelConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ProviderConfig {
+    /// API key for the provider.
     pub api_key: String,
+    /// Optional API base URL override.
     pub api_base: Option<String>,
+    /// Optional extra headers for API requests.
     pub extra_headers: Option<HashMap<String, String>>,
+    /// Optional GitHub instruction header for Copilot.
     pub github_instruction: Option<String>,
 }
 
@@ -408,9 +435,13 @@ impl Default for ProviderConfig {
 #[derive(Debug, Clone, Serialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ProvidersConfig {
+    /// Custom provider configuration.
     pub custom: ProviderConfig,
+    /// Anthropic provider configuration.
     pub anthropic: ProviderConfig,
+    /// OpenAI provider configuration.
     pub openai: ProviderConfig,
+    /// GitHub Copilot provider configuration.
     pub github_copilot: ProviderConfig,
 }
 
@@ -511,8 +542,11 @@ fn provider_spec(name: &str) -> Option<&'static ProviderSpec> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct GatewayConfig {
+    /// Host address to bind the gateway server.
     pub host: String,
+    /// Port to bind the gateway server.
     pub port: u16,
+    /// Heartbeat configuration for gateway runtime.
     pub heartbeat: HeartbeatConfig,
 }
 
@@ -547,7 +581,9 @@ impl GatewayConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct HeartbeatConfig {
+    /// Whether heartbeat processing is enabled.
     pub enabled: bool,
+    /// Polling interval in seconds.
     pub interval_s: u64,
 }
 
@@ -575,9 +611,13 @@ impl HeartbeatConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ToolsConfig {
+    /// Web tool configuration.
     pub web: WebToolsConfig,
+    /// Exec tool configuration.
     pub exec: ExecToolConfig,
+    /// Restrict file tools to workspace.
     pub restrict_to_workspace: bool,
+    /// MCP server configurations.
     pub mcp_servers: HashMap<String, MCPServerConfig>,
 }
 
@@ -614,7 +654,9 @@ impl ToolsConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct WebToolsConfig {
+    /// Optional HTTP proxy URL.
     pub proxy: Option<String>,
+    /// Web search configuration.
     pub search: WebSearchConfig,
 }
 
@@ -639,7 +681,9 @@ impl WebToolsConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct WebSearchConfig {
+    /// API key for search provider.
     pub api_key: String,
+    /// Maximum results to return.
     pub max_results: usize,
 }
 
@@ -666,7 +710,9 @@ impl WebSearchConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ExecToolConfig {
+    /// Execution timeout in seconds.
     pub timeout: u64,
+    /// PATH suffix to add for exec tool.
     pub path_append: String,
 }
 
@@ -693,11 +739,17 @@ impl ExecToolConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct MCPServerConfig {
+    /// Command to launch MCP server (stdio).
     pub command: String,
+    /// Arguments for MCP server command.
     pub args: Vec<String>,
+    /// Environment variables for MCP server process.
     pub env: HashMap<String, String>,
+    /// HTTP URL for MCP server (streamable HTTP).
     pub url: String,
+    /// Custom headers for MCP server HTTP requests.
     pub headers: HashMap<String, String>,
+    /// Tool execution timeout in seconds.
     pub tool_timeout: u64,
 }
 

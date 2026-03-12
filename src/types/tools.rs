@@ -24,14 +24,18 @@ pub struct ToolDefinition {
     /// Always `function` for OpenAI-compatible tool schema.
     #[serde(rename = "type")]
     pub kind: String,
+    /// Function schema definition for the tool.
     pub function: ToolFunction,
 }
 
 /// Function schema contained in a tool definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolFunction {
+    /// Function name exposed to the model.
     pub name: String,
+    /// Human-readable tool description.
     pub description: String,
+    /// JSON schema for parameters.
     pub parameters: JsonSchema,
 }
 
@@ -52,20 +56,28 @@ pub enum JsonSchemaType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JsonSchema {
     #[serde(rename = "type")]
+    /// JSON schema type of this node.
     pub schema_type: JsonSchemaType,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Optional description for the schema node.
     pub description: Option<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    /// Properties for object schemas.
     pub properties: BTreeMap<String, JsonSchema>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    /// Required property names for object schemas.
     pub required: Vec<String>,
     #[serde(rename = "enum", skip_serializing_if = "Option::is_none")]
+    /// Enumerated allowed values, if any.
     pub enum_values: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Item schema for array types.
     pub items: Option<Box<JsonSchema>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Minimum numeric value constraint.
     pub minimum: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Maximum numeric value constraint.
     pub maximum: Option<i64>,
 }
 
@@ -154,37 +166,49 @@ impl JsonSchema {
 /// Arguments for read_file tool.
 #[derive(Debug, Deserialize)]
 pub(crate) struct ReadFileArgs {
+    /// Path to read from.
     pub(crate) path: String,
 }
 
 /// Arguments for write_file tool.
 #[derive(Debug, Deserialize)]
 pub(crate) struct WriteFileArgs {
+    /// Path to write to.
     pub(crate) path: String,
+    /// File contents to write.
     pub(crate) content: String,
 }
 
 /// Arguments for edit_file tool.
 #[derive(Debug, Deserialize)]
 pub(crate) struct EditFileArgs {
+    /// Path of the file to edit.
     pub(crate) path: String,
+    /// Exact text to replace.
     pub(crate) old_text: String,
+    /// Replacement text.
     pub(crate) new_text: String,
 }
 
 /// Arguments for list_dir tool.
 #[derive(Debug, Deserialize)]
 pub(crate) struct ListDirArgs {
+    /// Directory path to list.
     pub(crate) path: String,
 }
 
 /// Arguments for message tool.
 #[derive(Debug, Deserialize)]
 pub(crate) struct MessageArgs {
+    /// Text content to send.
     pub(crate) content: String,
+    /// Optional target channel override.
     pub(crate) channel: Option<String>,
+    /// Optional target chat id override.
     pub(crate) chat_id: Option<String>,
+    /// Optional reply-to message id.
     pub(crate) message_id: Option<String>,
+    /// Optional media attachments.
     pub(crate) media: Option<Vec<String>>,
 }
 
@@ -201,54 +225,73 @@ pub(crate) enum CronAction {
 /// Arguments for cron tool operations.
 #[derive(Debug, Deserialize)]
 pub(crate) struct CronArgs {
+    /// Cron action to perform.
     pub(crate) action: CronAction,
+    /// Optional message payload.
     pub(crate) message: Option<String>,
+    /// Interval in seconds for `every`.
     pub(crate) every_seconds: Option<i64>,
+    /// Cron expression for `cron`.
     pub(crate) cron_expr: Option<String>,
+    /// Optional timezone for cron expressions.
     pub(crate) tz: Option<String>,
+    /// Scheduled time for one-shot `at`.
     pub(crate) at: Option<String>,
+    /// Job id for remove.
     pub(crate) job_id: Option<String>,
 }
 
 /// Arguments for spawn tool.
 #[derive(Debug, Deserialize)]
 pub(crate) struct SpawnArgs {
+    /// Task description for subagent.
     pub(crate) task: String,
+    /// Optional label for the task.
     pub(crate) label: Option<String>,
 }
 
 /// Arguments for exec tool.
 #[derive(Debug, Deserialize)]
 pub(crate) struct ExecArgs {
+    /// Command string to execute.
     pub(crate) command: String,
+    /// Optional working directory.
     pub(crate) working_dir: Option<String>,
 }
 
 /// Arguments for ACP execute tool.
 #[derive(Debug, Deserialize)]
 pub(crate) struct ACPExecuteArgs {
+    /// ACP agent identifier.
     pub(crate) agent_id: String,
+    /// Task prompt to send.
     pub(crate) task: String,
+    /// Optional working directory for the agent.
     pub(crate) cwd: Option<PathBuf>,
 }
 
 /// Arguments for web_search tool.
 #[derive(Debug, Deserialize)]
 pub(crate) struct WebSearchArgs {
+    /// Search query string.
     pub(crate) query: String,
+    /// Optional result count limit.
     pub(crate) count: Option<i64>,
 }
 
 /// Arguments for web_fetch tool.
 #[derive(Debug, Deserialize)]
 pub(crate) struct WebFetchArgs {
+    /// URL to fetch.
     pub(crate) url: String,
+    /// Optional max characters to return.
     pub(crate) max_chars: Option<i64>,
 }
 
 /// Partial Brave search API response payload.
 #[derive(Debug, Deserialize)]
 pub(crate) struct BraveSearchResponse {
+    /// Web search results container.
     pub(crate) web: Option<BraveWebData>,
 }
 
@@ -256,6 +299,7 @@ pub(crate) struct BraveSearchResponse {
 #[derive(Debug, Deserialize)]
 pub(crate) struct BraveWebData {
     #[serde(default)]
+    /// Search result list.
     pub(crate) results: Vec<BraveResult>,
 }
 
@@ -263,22 +307,32 @@ pub(crate) struct BraveWebData {
 #[derive(Debug, Deserialize)]
 pub(crate) struct BraveResult {
     #[serde(default)]
+    /// Result title.
     pub(crate) title: String,
     #[serde(default)]
+    /// Result URL.
     pub(crate) url: String,
     #[serde(default)]
+    /// Result description snippet.
     pub(crate) description: Option<String>,
 }
 
 /// Normalized response for web_fetch tool output.
 #[derive(Debug, Serialize)]
 pub(crate) struct WebFetchResponse {
+    /// Requested URL.
     pub(crate) url: String,
     #[serde(rename = "finalUrl")]
+    /// Final URL after redirects.
     pub(crate) final_url: String,
+    /// HTTP status code.
     pub(crate) status: u16,
+    /// Extractor name used to parse content.
     pub(crate) extractor: String,
+    /// Whether content was truncated.
     pub(crate) truncated: bool,
+    /// Returned content length.
     pub(crate) length: usize,
+    /// Extracted text content.
     pub(crate) text: String,
 }

@@ -51,34 +51,46 @@ impl MessageContent {
 /// Function call requested by the assistant.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssistantFunctionCall {
+    /// Function/tool name requested by the assistant.
     pub name: String,
+    /// JSON-encoded arguments for the function call.
     pub arguments: String,
 }
 
 /// Tool call wrapper for function invocation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssistantToolCall {
+    /// Provider-generated tool call identifier.
     pub id: String,
     #[serde(rename = "type")]
+    /// Tool call type (typically "function").
     pub kind: String,
+    /// Function call payload for the tool.
     pub function: AssistantFunctionCall,
 }
 
 /// Chat message payload used by providers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
+    /// Message role (system/user/assistant/tool).
     pub role: MessageRole,
     #[serde(default)]
+    /// Optional message content (text or structured parts).
     pub content: Option<MessageContent>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Tool calls attached to this message (assistant role).
     pub tool_calls: Option<Vec<AssistantToolCall>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Tool call id this tool message responds to.
     pub tool_call_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Optional tool name (used for tool responses).
     pub name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Optional reasoning content from providers that return it.
     pub reasoning_content: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Optional structured thinking blocks for long-form reasoning.
     pub thinking_blocks: Option<Vec<String>>,
 }
 
@@ -160,31 +172,43 @@ impl ChatMessage {
 /// Tool call returned by providers in unified response format.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCallRequest {
+    /// Provider-generated tool call identifier.
     pub id: String,
+    /// Tool name requested by the model.
     pub name: ToolName,
+    /// JSON payload for the tool arguments.
     pub arguments_json: String,
 }
 
 /// Token usage statistics from provider responses.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct UsageStats {
+    /// Tokens used by the prompt/request.
     pub prompt_tokens: Option<u64>,
+    /// Tokens generated in the completion/response.
     pub completion_tokens: Option<u64>,
+    /// Total tokens across prompt and completion.
     pub total_tokens: Option<u64>,
 }
 
 /// Unified LLM response with optional tool calls.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LLMResponse {
+    /// Optional assistant text content.
     pub content: Option<String>,
     #[serde(default)]
+    /// Tool calls requested by the model.
     pub tool_calls: Vec<ToolCallRequest>,
+    /// Provider finish reason string.
     pub finish_reason: String,
     #[serde(default)]
+    /// Usage statistics returned by the provider.
     pub usage: UsageStats,
     #[serde(default)]
+    /// Optional reasoning content from providers that return it.
     pub reasoning_content: Option<String>,
     #[serde(default)]
+    /// Optional structured thinking blocks for long-form reasoning.
     pub thinking_blocks: Option<Vec<String>>,
 }
 

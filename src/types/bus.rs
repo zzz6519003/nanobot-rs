@@ -8,6 +8,7 @@ use crate::types::SessionKey;
 #[serde(rename_all = "camelCase")]
 pub struct MessageMetadata {
     #[serde(default)]
+    /// Optional per-message identifier from the channel adapter.
     pub message_id: Option<String>,
 }
 
@@ -15,17 +16,25 @@ pub struct MessageMetadata {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InboundMessage {
+    /// Source channel name (e.g. `cli`, `telegram`).
     pub channel: String,
+    /// Sender identifier from the channel.
     pub sender_id: String,
+    /// Conversation or chat id within the channel.
     pub chat_id: String,
+    /// Incoming content (plain text or command).
     pub content: InboundContent,
     #[serde(default = "now_utc")]
+    /// Timestamp when the message was received (UTC).
     pub timestamp: DateTime<Utc>,
     #[serde(default)]
+    /// Optional media attachments as paths or URLs.
     pub media: Vec<String>,
     #[serde(default)]
+    /// Optional message metadata (IDs, hints).
     pub metadata: MessageMetadata,
     #[serde(default)]
+    /// Override for session key routing.
     pub session_key_override: Option<SessionKey>,
 }
 
@@ -130,14 +139,20 @@ impl From<InboundContent> for String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OutboundMessage {
+    /// Target channel name.
     pub channel: String,
+    /// Target chat id within the channel.
     pub chat_id: String,
+    /// Outbound text content to deliver.
     pub content: String,
     #[serde(default)]
+    /// Optional reply-to message id.
     pub reply_to: Option<String>,
     #[serde(default)]
+    /// Optional media attachments as paths or URLs.
     pub media: Vec<String>,
     #[serde(default)]
+    /// Optional message metadata (IDs, hints).
     pub metadata: MessageMetadata,
 }
 
