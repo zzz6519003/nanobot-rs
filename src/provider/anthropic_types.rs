@@ -171,6 +171,7 @@ pub(crate) struct AnthropicErrorDetail {
 // Spec source:
 // https://docs.anthropic.com/en/docs/build-with-claude/streaming
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub(crate) enum AnthropicStreamEvent {
     MessageStart {
@@ -214,6 +215,7 @@ pub(crate) enum AnthropicStreamEvent {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub(crate) struct AnthropicStreamMessage {
     /// Message id.
     #[serde(default)]
@@ -221,6 +223,7 @@ pub(crate) struct AnthropicStreamMessage {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub(crate) enum AnthropicStreamContentBlock {
     Text {
@@ -247,6 +250,7 @@ pub(crate) enum AnthropicStreamContentBlock {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub(crate) enum AnthropicStreamContentDelta {
     TextDelta {

@@ -238,6 +238,7 @@ pub(crate) enum ResponsesStreamEvent {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub(crate) struct ResponsesTextDeltaEvent {
     /// Unique event id, when provided by the server.
     #[serde(default)]
@@ -259,6 +260,7 @@ pub(crate) struct ResponsesTextDeltaEvent {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub(crate) struct ResponsesTextDoneEvent {
     /// Unique event id, when provided by the server.
     #[serde(default)]
@@ -280,6 +282,7 @@ pub(crate) struct ResponsesTextDoneEvent {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub(crate) struct ResponsesReasoningTextDeltaEvent {
     /// Unique event id, when provided by the server.
     #[serde(default)]
@@ -301,6 +304,7 @@ pub(crate) struct ResponsesReasoningTextDeltaEvent {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub(crate) struct ResponsesReasoningTextDoneEvent {
     /// Unique event id, when provided by the server.
     #[serde(default)]
@@ -322,6 +326,7 @@ pub(crate) struct ResponsesReasoningTextDoneEvent {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub(crate) struct ResponsesFunctionCallArgumentsDeltaEvent {
     /// Unique event id, when provided by the server.
     #[serde(default)]
@@ -341,6 +346,7 @@ pub(crate) struct ResponsesFunctionCallArgumentsDeltaEvent {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub(crate) struct ResponsesFunctionCallArgumentsDoneEvent {
     /// Unique event id, when provided by the server.
     #[serde(default)]
@@ -365,6 +371,7 @@ pub(crate) struct ResponsesFunctionCallArgumentsDoneEvent {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub(crate) struct ResponsesOutputItemEvent {
     /// Unique event id, when provided by the server.
     #[serde(default)]
@@ -382,6 +389,7 @@ pub(crate) struct ResponsesOutputItemEvent {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub(crate) struct ResponsesCompletedEvent {
     /// Unique event id, when provided by the server.
     #[serde(default)]
@@ -402,6 +410,7 @@ pub(crate) struct ResponsesErrorEvent {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub(crate) enum ResponsesOutputItem {
     Message {

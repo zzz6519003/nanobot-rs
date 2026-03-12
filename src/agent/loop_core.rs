@@ -11,7 +11,7 @@ use tokio::task::AbortHandle;
 use tracing::{Instrument, debug, debug_span, error, info, trace};
 
 use crate::agent::ContextProvider;
-use crate::agent::react::{ExecutionContext, LoopOutcome, ModelConfig, ReActExecutor};
+use crate::agent::react::{ExecutionContext, LoopOutcome, ModelConfig, ProgressEmitter, ReActExecutor};
 use crate::agent::traits::Agent;
 use crate::bus::{InboundCommand, InboundMessage, MessageBus, MessageMetadata, OutboundMessage};
 use crate::error::Result;
@@ -478,8 +478,14 @@ impl AgentLoop {
         let start_index = messages.len() - 1 - history_len;
 
         // Use new ReAct executor
+        let progress = ProgressEmitter::new(
+            self.bus.clone(),
+            msg.channel.clone(),
+            msg.chat_id.clone(),
+            msg.metadata.message_id.clone(),
+        );
         let outcome = self
-            .run_agent_loop(messages, &tool_context, &session_key)
+            .run_agent_loop(messages, &tool_context, &session_key, Some(progress))
             .await?;
 
         debug!(
@@ -586,6 +592,7 @@ impl AgentLoop {
         messages: Vec<ChatMessage>,
         tool_context: &ToolContext,
         session_key: &SessionKey,
+        progress: Option<ProgressEmitter>,
     ) -> Result<LoopOutcome> {
         debug!(
             target: TARGET_AGENT,
@@ -619,7 +626,13 @@ impl AgentLoop {
         };
 
         executor
-            .run(messages, self.tools.definitions(), config, exec_context)
+            .run(
+                messages,
+                self.tools.definitions(),
+                config,
+                exec_context,
+                progress,
+            )
             .await
     }
 

@@ -6,6 +6,6 @@ mod state;
 mod tool_runner;
 
 pub use executor::{ExecutionContext, ReActExecutor};
-pub use planner::{ModelConfig, Planner, PlannerResponse};
+pub use planner::{ModelConfig, Planner, PlannerResponse, ProgressEmitter};
 pub use state::{LoopExitReason, LoopOutcome, LoopState, StepResult};
 pub use tool_runner::{ToolObservation, ToolRunner};

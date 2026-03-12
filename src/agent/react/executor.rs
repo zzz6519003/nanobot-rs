@@ -10,9 +10,11 @@ use crate::provider::LLMProvider;
 use crate::tools::{ToolContext, ToolRegistry};
 use crate::types::provider::{AssistantToolCall, ChatMessage};
 
-use super::planner::{ModelConfig, Planner};
+use super::planner::{ModelConfig, Planner, ProgressEmitter};
 use super::state::{LoopExitReason, LoopOutcome, LoopState};
 use super::tool_runner::ToolRunner;
+
+const TOOL_RESULT_MAX_CHARS: usize = 480;
 
 /// ReAct loop executor
 pub struct ReActExecutor {
@@ -41,6 +43,7 @@ impl ReActExecutor {
         tools: Vec<std::sync::Arc<crate::tools::base::ToolDefinition>>,
         config: ModelConfig,
         context: ExecutionContext,
+        progress: Option<ProgressEmitter>,
     ) -> Result<LoopOutcome> {
         let mut state = LoopState::QueryModel { iteration: 0 };
         let mut iterations = 0;
@@ -71,7 +74,11 @@ impl ReActExecutor {
                         ));
                     }
 
-                    match self.planner.query(&messages, &tools, &config).await {
+                    match self
+                        .planner
+                        .query(&messages, &tools, &config, progress.as_ref())
+                        .await
+                    {
                         Ok(response) => {
                             if response.is_final() {
                                 // Model returned final answer
@@ -174,6 +181,14 @@ impl ReActExecutor {
                         continue;
                     }
 
+                    if let Some(progress) = &progress {
+                        let tc = &tool_calls[0];
+                        progress.send_tool_hint(&format!(
+                            "Running tool: {} (id={})",
+                            tc.name, tc.id
+                        ));
+                    }
+
                     // Execute first tool, get diagnostic if multiple
                     let tool_context = context.to_tool_context();
                     let (observation, diagnostic) = self
@@ -188,11 +203,22 @@ impl ReActExecutor {
                     }
 
                     // Add tool result message
+                    let obs_content_for_hint = obs_content.clone();
                     messages.push(ChatMessage::tool_result(
                         observation.tool_call_id,
                         tool_calls[0].name.to_string(),
                         obs_content,
                     ));
+
+                    if let Some(progress) = &progress {
+                        let result_preview = truncate_tool_result(&obs_content_for_hint);
+                        progress.send_tool_hint(&format!(
+                            "Tool result: {} (id={}) -> {}",
+                            tool_calls[0].name,
+                            tool_calls[0].id,
+                            result_preview
+                        ));
+                    }
 
                     // Move to next iteration
                     state = LoopState::QueryModel {
@@ -230,4 +256,12 @@ impl ExecutionContext {
             message_id: None,
         }
     }
+}
+
+fn truncate_tool_result(value: &str) -> String {
+    if value.len() <= TOOL_RESULT_MAX_CHARS {
+        return value.to_string();
+    }
+    let truncated: String = value.chars().take(TOOL_RESULT_MAX_CHARS).collect();
+    format!("{}…", truncated)
 }
