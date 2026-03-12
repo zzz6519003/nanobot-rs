@@ -14,10 +14,14 @@ use crate::tools::base::{
 use crate::types::tools::ACPExecuteArgs;
 use std::sync::OnceLock;
 
+// Tool descriptions
 const ACP_EXECUTE_TOOL_NAME: &str = "acp_execute";
 const ACP_EXECUTE_DESCRIPTION: &str = "Execute a coding task using an ACP agent. \
 Use this for complex coding tasks that require multi-file edits, refactoring, or \
 end-to-end feature implementation.";
+const ACP_AGENT_ID_DESC: &str = "ACP agent id used to execute the task";
+const ACP_TASK_DESC: &str = "Coding task to execute by the ACP agent";
+const ACP_CWD_DESC: &str = "Optional working directory for the ACP agent process";
 
 pub struct ACPTool {
     config: ACPConfig,
@@ -61,7 +65,7 @@ impl ACPTool {
         let allowed_agents = self.allowed_agents();
         let mut schema = json!({
             "type": "string",
-            "description": "ACP agent id used to execute the task"
+            "description": ACP_AGENT_ID_DESC
         });
         if !allowed_agents.is_empty() {
             schema["enum"] = json!(allowed_agents);
@@ -192,11 +196,11 @@ impl Tool for ACPTool {
                             "agent_id": self.definition_agent_schema(),
                             "task": {
                                 "type": "string",
-                                "description": "Coding task to execute by the ACP agent"
+                                "description": ACP_TASK_DESC
                             },
                             "cwd": {
                                 "type": "string",
-                                "description": "Optional working directory for the ACP agent process"
+                                "description": ACP_CWD_DESC
                             }
                         },
                         "required": ["agent_id", "task"]

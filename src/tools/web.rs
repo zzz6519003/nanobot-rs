@@ -11,6 +11,14 @@ use crate::tools::base::{
 use crate::tools::config::SharedToolConfig;
 use crate::types::tools::{BraveSearchResponse, WebFetchArgs, WebFetchResponse, WebSearchArgs};
 
+// Tool descriptions
+const WEB_SEARCH_DESC: &str = "Search the web. Returns titles, URLs, and snippets.";
+const WEB_SEARCH_QUERY_DESC: &str = "Search query";
+const WEB_SEARCH_COUNT_DESC: &str = "Results (1-10)";
+
+const WEB_FETCH_DESC: &str = "Fetch URL and extract readable content (HTML to text).";
+const WEB_FETCH_URL_DESC: &str = "URL to fetch";
+
 pub struct WebSearchTool {
     config: SharedToolConfig,
 }
@@ -34,17 +42,17 @@ impl Tool for WebSearchTool {
                 "type": "function",
                 "function": {
                     "name": "web_search",
-                    "description": "Search the web. Returns titles, URLs, and snippets.",
+                    "description": WEB_SEARCH_DESC,
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
-                                "description": "Search query"
+                                "description": WEB_SEARCH_QUERY_DESC
                             },
                             "count": {
                                 "type": "integer",
-                                "description": "Results (1-10)",
+                                "description": WEB_SEARCH_COUNT_DESC,
                                 "minimum": 1,
                                 "maximum": 10
                             }
@@ -92,13 +100,13 @@ impl Tool for WebFetchTool {
                 "type": "function",
                 "function": {
                     "name": "web_fetch",
-                    "description": "Fetch URL and extract readable content (HTML to text).",
+                    "description": WEB_FETCH_DESC,
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "url": {
                                 "type": "string",
-                                "description": "URL to fetch"
+                                "description": WEB_FETCH_URL_DESC
                             },
                             "max_chars": {
                                 "type": "integer",

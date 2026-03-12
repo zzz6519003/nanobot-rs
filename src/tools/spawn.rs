@@ -12,6 +12,11 @@ use crate::tools::base::{
 use crate::types::SessionKey;
 use crate::types::tools::SpawnArgs;
 
+// Tool descriptions
+const SPAWN_DESC: &str = "Spawn a subagent to handle a task in the background. Use this for complex or time-consuming tasks that can run independently. The subagent will complete the task and report back when done.";
+const SPAWN_TASK_DESC: &str = "The task for the subagent to complete";
+const SPAWN_LABEL_DESC: &str = "Optional short label for the task (for display)";
+
 pub struct SpawnTool {
     service: Arc<dyn SpawnService>,
 }
@@ -28,17 +33,17 @@ impl SpawnTool {
                 "type": "function",
                 "function": {
                     "name": "spawn",
-                    "description": "Spawn a subagent to handle a task in the background. Use this for complex or time-consuming tasks that can run independently. The subagent will complete the task and report back when done.",
+                    "description": SPAWN_DESC,
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "task": {
                                 "type": "string",
-                                "description": "The task for the subagent to complete"
+                                "description": SPAWN_TASK_DESC
                             },
                             "label": {
                                 "type": "string",
-                                "description": "Optional short label for the task (for display)"
+                                "description": SPAWN_LABEL_DESC
                             }
                         },
                         "required": ["task"]

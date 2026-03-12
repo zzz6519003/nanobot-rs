@@ -12,6 +12,16 @@ use crate::tools::base::{
 };
 use crate::types::tools::{CronAction, CronArgs};
 
+// Tool descriptions
+const CRON_DESC: &str = "Schedule reminders and recurring tasks. Actions: add, once, list, remove.";
+const CRON_ACTION_DESC: &str = "Action to perform";
+const CRON_MESSAGE_DESC: &str = "Reminder message (for add)";
+const CRON_EVERY_SECONDS_DESC: &str = "Interval in seconds (for recurring tasks)";
+const CRON_EXPR_DESC: &str = "Cron expression like '0 9 * * *' (for scheduled tasks)";
+const CRON_TZ_DESC: &str = "IANA timezone for cron expressions (e.g. 'America/Vancouver')";
+const CRON_AT_DESC: &str = "ISO datetime for one-time execution (e.g. '2026-02-12T10:30:00')";
+const CRON_JOB_ID_DESC: &str = "Job ID (for remove)";
+
 pub struct CronTool {
     service: Arc<CronService>,
 }
@@ -28,38 +38,38 @@ impl CronTool {
                 "type": "function",
                 "function": {
                     "name": "cron",
-                    "description": "Schedule reminders and recurring tasks. Actions: add, once, list, remove.",
+                    "description": CRON_DESC,
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "action": {
                                 "type": "string",
-                                "description": "Action to perform",
+                                "description": CRON_ACTION_DESC,
                                 "enum": ["add", "once", "list", "remove"]
                             },
                             "message": {
                                 "type": "string",
-                                "description": "Reminder message (for add)"
+                                "description": CRON_MESSAGE_DESC
                             },
                             "every_seconds": {
                                 "type": "integer",
-                                "description": "Interval in seconds (for recurring tasks)"
+                                "description": CRON_EVERY_SECONDS_DESC
                             },
                             "cron_expr": {
                                 "type": "string",
-                                "description": "Cron expression like '0 9 * * *' (for scheduled tasks)"
+                                "description": CRON_EXPR_DESC
                             },
                             "tz": {
                                 "type": "string",
-                                "description": "IANA timezone for cron expressions (e.g. 'America/Vancouver')"
+                                "description": CRON_TZ_DESC
                             },
                             "at": {
                                 "type": "string",
-                                "description": "ISO datetime for one-time execution (e.g. '2026-02-12T10:30:00')"
+                                "description": CRON_AT_DESC
                             },
                             "job_id": {
                                 "type": "string",
-                                "description": "Job ID (for remove)"
+                                "description": CRON_JOB_ID_DESC
                             }
                         },
                         "required": ["action"]

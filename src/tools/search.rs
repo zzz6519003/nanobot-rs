@@ -14,6 +14,24 @@ use crate::tools::base::{
 };
 use crate::tools::config::SharedToolConfig;
 
+// Tool descriptions
+const SEARCH_FILES_DESC: &str = "Search for text in files using ripgrep. Fast full-text search across the codebase with regex support.";
+const SEARCH_FILES_QUERY_DESC: &str = "Search query (supports regex if regex=true)";
+const SEARCH_FILES_PATH_DESC: &str = "Directory or file to search (optional, defaults to workspace root)";
+const SEARCH_FILES_CASE_SENSITIVE_DESC: &str = "Case sensitive search (default: false)";
+const SEARCH_FILES_REGEX_DESC: &str = "Treat query as regex (default: false)";
+const SEARCH_FILES_FILE_PATTERN_DESC: &str = "File pattern to filter (e.g., '*.rs', '*.{js,ts}')";
+const SEARCH_FILES_LIMIT_DESC: &str = "Maximum number of results (default: 50)";
+const SEARCH_FILES_CONTEXT_LINES_DESC: &str = "Number of context lines before/after match (default: 2)";
+
+const GREP_CODE_DESC: &str = "Search for text in code files with language-specific filtering. Automatically excludes common non-code files.";
+const GREP_CODE_QUERY_DESC: &str = "Search query";
+const GREP_CODE_PATH_DESC: &str = "Directory to search (optional, defaults to workspace root)";
+const GREP_CODE_LANGUAGE_DESC: &str = "Filter by language (e.g., 'rust', 'python', 'javascript')";
+const GREP_CODE_CASE_SENSITIVE_DESC: &str = "Case sensitive search (default: false)";
+const GREP_CODE_LIMIT_DESC: &str = "Maximum number of results (default: 50)";
+const GREP_CODE_CONTEXT_LINES_DESC: &str = "Number of context lines before/after match (default: 2)";
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SearchFilesArgs {
@@ -97,37 +115,37 @@ impl Tool for SearchFilesTool {
                 "type": "function",
                 "function": {
                     "name": "search_files",
-                    "description": "Search for text in files using ripgrep. Fast full-text search across the codebase with regex support.",
+                    "description": SEARCH_FILES_DESC,
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
-                                "description": "Search query (supports regex if regex=true)"
+                                "description": SEARCH_FILES_QUERY_DESC
                             },
                             "path": {
                                 "type": "string",
-                                "description": "Directory or file to search (optional, defaults to workspace root)"
+                                "description": SEARCH_FILES_PATH_DESC
                             },
                             "caseSensitive": {
                                 "type": "string",
-                                "description": "Case sensitive search (default: false)"
+                                "description": SEARCH_FILES_CASE_SENSITIVE_DESC
                             },
                             "regex": {
                                 "type": "string",
-                                "description": "Treat query as regex (default: false)"
+                                "description": SEARCH_FILES_REGEX_DESC
                             },
                             "filePattern": {
                                 "type": "string",
-                                "description": "File pattern to filter (e.g., '*.rs', '*.{js,ts}')"
+                                "description": SEARCH_FILES_FILE_PATTERN_DESC
                             },
                             "limit": {
                                 "type": "integer",
-                                "description": "Maximum number of results (default: 50)"
+                                "description": SEARCH_FILES_LIMIT_DESC
                             },
                             "contextLines": {
                                 "type": "integer",
-                                "description": "Number of context lines before/after match (default: 2)"
+                                "description": SEARCH_FILES_CONTEXT_LINES_DESC
                             }
                         },
                         "required": ["query"]
@@ -180,33 +198,33 @@ impl Tool for GrepCodeTool {
                 "type": "function",
                 "function": {
                     "name": "grep_code",
-                    "description": "Search for text in code files with language-specific filtering. Automatically excludes common non-code files.",
+                    "description": GREP_CODE_DESC,
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
-                                "description": "Search query"
+                                "description": GREP_CODE_QUERY_DESC
                             },
                             "path": {
                                 "type": "string",
-                                "description": "Directory to search (optional, defaults to workspace root)"
+                                "description": GREP_CODE_PATH_DESC
                             },
                             "language": {
                                 "type": "string",
-                                "description": "Filter by language (e.g., 'rust', 'python', 'javascript')"
+                                "description": GREP_CODE_LANGUAGE_DESC
                             },
                             "caseSensitive": {
                                 "type": "string",
-                                "description": "Case sensitive search (default: false)"
+                                "description": GREP_CODE_CASE_SENSITIVE_DESC
                             },
                             "limit": {
                                 "type": "integer",
-                                "description": "Maximum number of results (default: 50)"
+                                "description": GREP_CODE_LIMIT_DESC
                             },
                             "contextLines": {
                                 "type": "integer",
-                                "description": "Number of context lines before/after match (default: 2)"
+                                "description": GREP_CODE_CONTEXT_LINES_DESC
                             }
                         },
                         "required": ["query"]

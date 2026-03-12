@@ -12,6 +12,13 @@ use crate::tools::base::{
 };
 use crate::types::tools::MessageArgs;
 
+// Tool descriptions
+const MESSAGE_DESC: &str = "Send a message to the user. Use this when you want to communicate something.";
+const MESSAGE_CONTENT_DESC: &str = "The message content to send";
+const MESSAGE_CHANNEL_DESC: &str = "Optional: target channel (telegram, discord, etc.)";
+const MESSAGE_CHAT_ID_DESC: &str = "Optional: target chat/user ID";
+const MESSAGE_MEDIA_DESC: &str = "Optional: list of file paths to attach (images, audio, documents)";
+
 pub struct MessageTool {
     bus: Option<MessageBus>,
     sent_in_turn: AtomicBool,
@@ -32,25 +39,25 @@ impl MessageTool {
                 "type": "function",
                 "function": {
                     "name": "message",
-                    "description": "Send a message to the user. Use this when you want to communicate something.",
+                    "description": MESSAGE_DESC,
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "content": {
                                 "type": "string",
-                                "description": "The message content to send"
+                                "description": MESSAGE_CONTENT_DESC
                             },
                             "channel": {
                                 "type": "string",
-                                "description": "Optional: target channel (telegram, discord, etc.)"
+                                "description": MESSAGE_CHANNEL_DESC
                             },
                             "chat_id": {
                                 "type": "string",
-                                "description": "Optional: target chat/user ID"
+                                "description": MESSAGE_CHAT_ID_DESC
                             },
                             "media": {
                                 "type": "array",
-                                "description": "Optional: list of file paths to attach (images, audio, documents)",
+                                "description": MESSAGE_MEDIA_DESC,
                                 "items": {
                                     "type": "string"
                                 }

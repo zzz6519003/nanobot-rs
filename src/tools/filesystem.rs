@@ -14,6 +14,22 @@ use crate::tools::base::{
 use crate::tools::config::SharedToolConfig;
 use crate::types::tools::{EditFileArgs, ListDirArgs, ReadFileArgs, WriteFileArgs};
 
+// Tool descriptions
+const READ_FILE_DESC: &str = "Read the contents of a file at the given path.";
+const READ_FILE_PATH_DESC: &str = "The file path to read";
+
+const WRITE_FILE_DESC: &str = "Write content to a file at the given path. Creates parent directories if needed.";
+const WRITE_FILE_PATH_DESC: &str = "The file path to write to";
+const WRITE_FILE_CONTENT_DESC: &str = "The content to write";
+
+const EDIT_FILE_DESC: &str = "Edit a file by replacing old_text with new_text. The old_text must exist exactly in the file.";
+const EDIT_FILE_PATH_DESC: &str = "The file path to edit";
+const EDIT_FILE_OLD_TEXT_DESC: &str = "The exact text to find and replace";
+const EDIT_FILE_NEW_TEXT_DESC: &str = "The text to replace with";
+
+const LIST_DIR_DESC: &str = "List files and directories in the given directory path.";
+const LIST_DIR_PATH_DESC: &str = "The directory path to list";
+
 pub struct ReadFileTool {
     config: SharedToolConfig,
 }
@@ -37,13 +53,13 @@ impl Tool for ReadFileTool {
                 "type": "function",
                 "function": {
                     "name": "read_file",
-                    "description": "Read the contents of a file at the given path.",
+                    "description": READ_FILE_DESC,
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
-                                "description": "The file path to read"
+                                "description": READ_FILE_PATH_DESC
                             }
                         },
                         "required": ["path"]
@@ -88,17 +104,17 @@ impl Tool for WriteFileTool {
                 "type": "function",
                 "function": {
                     "name": "write_file",
-                    "description": "Write content to a file at the given path. Creates parent directories if needed.",
+                    "description": WRITE_FILE_DESC,
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
-                                "description": "The file path to write to"
+                                "description": WRITE_FILE_PATH_DESC
                             },
                             "content": {
                                 "type": "string",
-                                "description": "The content to write"
+                                "description": WRITE_FILE_CONTENT_DESC
                             }
                         },
                         "required": ["path", "content"]
@@ -143,21 +159,21 @@ impl Tool for EditFileTool {
                 "type": "function",
                 "function": {
                     "name": "edit_file",
-                    "description": "Edit a file by replacing old_text with new_text. The old_text must exist exactly in the file.",
+                    "description": EDIT_FILE_DESC,
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
-                                "description": "The file path to edit"
+                                "description": EDIT_FILE_PATH_DESC
                             },
                             "old_text": {
                                 "type": "string",
-                                "description": "The exact text to find and replace"
+                                "description": EDIT_FILE_OLD_TEXT_DESC
                             },
                             "new_text": {
                                 "type": "string",
-                                "description": "The text to replace with"
+                                "description": EDIT_FILE_NEW_TEXT_DESC
                             }
                         },
                         "required": ["path", "old_text", "new_text"]
@@ -202,13 +218,13 @@ impl Tool for ListDirTool {
                 "type": "function",
                 "function": {
                     "name": "list_dir",
-                    "description": "List the contents of a directory.",
+                    "description": LIST_DIR_DESC,
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
-                                "description": "The directory path to list"
+                                "description": LIST_DIR_PATH_DESC
                             }
                         },
                         "required": ["path"]

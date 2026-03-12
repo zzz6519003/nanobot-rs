@@ -15,6 +15,11 @@ use crate::tools::base::{
 use crate::tools::config::SharedToolConfig;
 use crate::types::tools::ExecArgs;
 
+// Tool descriptions
+const EXEC_DESC: &str = "Execute a shell command and return its output. Use with caution.";
+const EXEC_COMMAND_DESC: &str = "The shell command to execute";
+const EXEC_WORKING_DIR_DESC: &str = "Optional working directory for the command";
+
 pub struct ShellTool {
     config: SharedToolConfig,
 }
@@ -31,17 +36,17 @@ pub fn definition() -> Arc<ToolDefinition> {
             "type": "function",
             "function": {
                 "name": "exec",
-                "description": "Execute a shell command and return its output. Use with caution.",
+                "description": EXEC_DESC,
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "command": {
                             "type": "string",
-                            "description": "The shell command to execute"
+                            "description": EXEC_COMMAND_DESC
                         },
                         "working_dir": {
                             "type": "string",
-                            "description": "Optional working directory for the command"
+                            "description": EXEC_WORKING_DIR_DESC
                         }
                     },
                     "required": ["command"]
