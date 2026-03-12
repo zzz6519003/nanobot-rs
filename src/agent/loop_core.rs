@@ -171,13 +171,13 @@ impl AgentLoop {
     pub async fn process_direct(
         &self,
         content: &str,
-        session_key: &str,
+        session_key: &SessionKey,
         channel: &str,
         chat_id: &str,
     ) -> Result<String> {
         debug!(
             target: TARGET_AGENT,
-            session_key,
+            session_key = %session_key,
             channel,
             chat_id,
             content_preview = %preview_text(content, 120),
@@ -192,14 +192,14 @@ impl AgentLoop {
             timestamp: chrono::Utc::now(),
             media: Vec::new(),
             metadata: MessageMetadata::default(),
-            session_key_override: Some(SessionKey::from(session_key)),
+            session_key_override: Some(session_key.clone()),
         };
 
         let out = self.process_message(msg).await?;
         let content = out.map(|m| m.content).unwrap_or_default();
         debug!(
             target: TARGET_AGENT,
-            session_key,
+            session_key = %session_key,
             channel,
             chat_id,
             content_len = content.len(),
@@ -711,7 +711,7 @@ impl Agent for AgentLoop {
     async fn process_direct(
         &self,
         content: &str,
-        session_key: &str,
+        session_key: &SessionKey,
         channel: &str,
         chat_id: &str,
     ) -> Result<String> {

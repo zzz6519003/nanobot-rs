@@ -108,7 +108,7 @@ pub trait Agent: Send + Sync {
     /// # Arguments
     ///
     /// * `content` - The message content
-    /// * `session_key` - Session identifier
+    /// * `session_key` - Session identifier (SessionKey)
     /// * `channel` - Channel name (e.g., "cli", "telegram")
     /// * `chat_id` - Chat identifier
     ///
@@ -118,7 +118,7 @@ pub trait Agent: Send + Sync {
     async fn process_direct(
         &self,
         content: &str,
-        session_key: &str,
+        session_key: &SessionKey,
         channel: &str,
         chat_id: &str,
     ) -> Result<String>;

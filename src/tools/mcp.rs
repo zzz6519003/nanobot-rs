@@ -385,7 +385,11 @@ impl Tool for MCPToolWrapper {
     }
 
     fn definition(&self) -> Arc<ToolDefinition> {
-        Arc::new(ToolDefinition::function(&self.name, &self.description, self.parameters.clone()))
+        Arc::new(ToolDefinition::function(
+            &self.name,
+            &self.description,
+            self.parameters.clone(),
+        ))
     }
 
     async fn execute(&self, args_json: &str, _ctx: &ToolContext) -> Result<String> {

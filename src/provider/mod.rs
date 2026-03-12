@@ -1,9 +1,13 @@
 pub mod anthropic;
+mod anthropic_types;
 pub mod base;
+mod openai_types;
 pub mod openai_compat;
 pub mod proxy;
 pub mod registry;
+pub mod streaming;
 pub mod tool_name;
+pub mod traits;
 
 use std::sync::Arc;
 

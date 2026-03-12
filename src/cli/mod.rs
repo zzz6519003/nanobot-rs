@@ -51,14 +51,10 @@ pub enum Commands {
     )]
     Gateway(GatewayArgs),
     #[command(about = "Show status of config, workspace, and providers.")]
-    #[command(
-        long_about = "Print paths and availability checks for config and workspace."
-    )]
+    #[command(long_about = "Print paths and availability checks for config and workspace.")]
     Status,
     #[command(about = "Manage provider configuration and connectivity checks.")]
-    #[command(
-        long_about = "Login to a provider or show provider auth status."
-    )]
+    #[command(long_about = "Login to a provider or show provider auth status.")]
     Provider(ProviderArgs),
 }
 
@@ -72,13 +68,23 @@ pub struct OnboardArgs {
 pub struct AgentArgs {
     #[arg(long, short, help = "Send a single message and exit.")]
     pub message: Option<String>,
-    #[arg(long, short, default_value = "cli:direct", help = "Session key in channel:chat_id format.")]
+    #[arg(
+        long,
+        short,
+        default_value = "cli:direct",
+        help = "Session key in channel:chat_id format."
+    )]
     pub session: String,
 }
 
 #[derive(Debug, Args)]
 pub struct GatewayArgs {
-    #[arg(long, short, default_value_t = 18790, help = "Port to bind the gateway service.")]
+    #[arg(
+        long,
+        short,
+        default_value_t = 18790,
+        help = "Port to bind the gateway service."
+    )]
     pub port: u16,
 }
 
@@ -96,9 +102,7 @@ pub enum ProviderCommands {
     )]
     Login(ProviderLoginArgs),
     #[command(about = "Show provider auth status.")]
-    #[command(
-        long_about = "Check whether the selected provider has credentials configured."
-    )]
+    #[command(long_about = "Check whether the selected provider has credentials configured.")]
     Status(ProviderStatusArgs),
 }
 
@@ -175,9 +179,10 @@ async fn agent(args: AgentArgs) -> Result<()> {
 
     if let Some(message) = args.message {
         let (channel, chat_id) = split_session(&args.session);
+        let session_key = SessionKey::from(args.session.as_str());
         let response = runtime
             .agent
-            .process_direct(&message, &args.session, &channel, &chat_id)
+            .process_direct(&message, &session_key, &channel, &chat_id)
             .await;
         runtime.agent.close_mcp().await;
         runtime.agent.close_provider().await;
@@ -577,12 +582,13 @@ impl CronJobHandler for GatewayCronJobHandler {
             "[Scheduled Task] Timer finished.\n\nTask '{}' has been triggered.\nScheduled instruction: {}",
             job.name, job.payload.message
         );
+        let session_key = SessionKey::from_string(format!("cron:{}", job.id));
 
         let response = self
             .agent
             .process_direct(
                 &reminder_note,
-                &format!("cron:{}", job.id),
+                &session_key,
                 job.payload.channel.as_deref().unwrap_or("cli"),
                 job.payload.to.as_deref().unwrap_or("direct"),
             )
@@ -618,8 +624,9 @@ struct GatewayHeartbeatExecuteHandler {
 impl HeartbeatExecuteHandler for GatewayHeartbeatExecuteHandler {
     async fn on_execute(&self, tasks: String) -> Result<String> {
         let (channel, chat_id) = self.picker.pick_target().await;
+        let session_key = SessionKey::from("heartbeat");
         self.agent
-            .process_direct(&tasks, "heartbeat", &channel, &chat_id)
+            .process_direct(&tasks, &session_key, &channel, &chat_id)
             .await
             .map_err(|e| anyhow::anyhow!("{}", e))
     }

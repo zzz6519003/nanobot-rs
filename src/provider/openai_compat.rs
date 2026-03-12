@@ -8,11 +8,12 @@ use uuid::Uuid;
 use crate::observability::TARGET_PROVIDER;
 use crate::provider::proxy::ProxyFallbackHelper;
 use crate::provider::registry::find_spec;
+use crate::provider::streaming::{OpenAiAdapter, StreamAdapter, StreamError, StreamResponse};
 use crate::provider::{
     ChatMessage, ChatRequest, LLMProvider, LLMResponse, MessageContent, MessageRole,
     ToolCallRequest, UsageStats,
 };
-use crate::types::provider_openai::{
+use crate::provider::openai_types::{
     OpenAIResponsesResponse, ResponseFunctionCallItem, ResponseFunctionCallOutputItem,
     ResponseInputContent, ResponseInputItem, ResponseInputMessage, ResponseOutputBlock,
     ResponseOutputContent, ResponseReasoningConfig, ResponseReasoningSummary,
@@ -249,6 +250,7 @@ impl OpenAICompatProvider {
                     .collect()
             }),
             tool_choice,
+            stream: None,
         }
     }
 }
@@ -291,6 +293,40 @@ impl LLMProvider for OpenAICompatProvider {
             Ok(parsed) => parse_responses_response(parsed),
             Err(e) => error_response(format!("Error parsing LLM response: {}", e)),
         }
+    }
+
+    async fn chat_stream(&self, req: ChatRequest) -> Result<StreamResponse, StreamError> {
+        let model = self.resolve_model(req.model.as_deref().unwrap_or(&self.default_model));
+        let endpoint = self.endpoint();
+        let mut payload = self.build_responses_payload(model, req);
+
+        // Enable streaming
+        payload.stream = Some(true);
+
+        let payload_value = serde_json::to_value(payload)
+            .map_err(|e| StreamError::Provider(format!("Error serializing request: {}", e)))?;
+
+        let response = self
+            .send_request_with_proxy_fallback(&endpoint, &payload_value)
+            .await
+            .map_err(StreamError::Network)?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(StreamError::Provider(format!(
+                "HTTP {}: {}",
+                status.as_u16(),
+                body_text
+            )));
+        }
+
+        // Use OpenAI adapter to convert response to StreamEvent stream
+        let adapter = OpenAiAdapter;
+        adapter.adapt_stream(response).await
     }
 
     fn default_model(&self) -> &str {
@@ -687,7 +723,7 @@ mod tests {
                     }],
                 },
             ],
-            usage: Some(crate::types::provider_openai::ResponsesUsage {
+            usage: Some(crate::provider::openai_types::ResponsesUsage {
                 input_tokens: Some(10),
                 output_tokens: Some(5),
                 total_tokens: Some(15),

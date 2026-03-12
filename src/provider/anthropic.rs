@@ -6,11 +6,12 @@ use tracing::trace;
 
 use crate::observability::TARGET_PROVIDER;
 use crate::provider::proxy::ProxyFallbackHelper;
+use crate::provider::streaming::{SseAdapter, StreamAdapter, StreamError, StreamResponse};
 use crate::provider::{
     AssistantToolCall, ChatMessage, ChatRequest, LLMProvider, LLMResponse, MessageContent,
     MessageRole, ToolCallRequest, UsageStats,
 };
-use crate::types::provider_anthropic::{
+use crate::provider::anthropic_types::{
     AnthropicContentBlock, AnthropicErrorResponse, AnthropicInputContentBlock,
     AnthropicInputMessage, AnthropicMessagesPayload, AnthropicMessagesResponse,
     AnthropicToolDefinition, AnthropicUsage,
@@ -129,6 +130,7 @@ impl AnthropicProvider {
                         .collect()
                 })
             }),
+            stream: None,
         }
     }
 
@@ -256,6 +258,43 @@ impl LLMProvider for AnthropicProvider {
             Ok(parsed) => parse_messages_response(parsed),
             Err(err) => error_response(format!("Error parsing Claude response: {}", err)),
         }
+    }
+
+    async fn chat_stream(&self, req: ChatRequest) -> Result<StreamResponse, StreamError> {
+        let model = req
+            .model
+            .clone()
+            .unwrap_or_else(|| self.default_model.clone());
+        let endpoint = self.endpoint();
+        let mut payload = self.build_payload(model, req);
+
+        // Enable streaming
+        payload.stream = Some(true);
+
+        let payload_value = serde_json::to_value(payload)
+            .map_err(|e| StreamError::Provider(format!("Error serializing request: {}", e)))?;
+
+        let response = self
+            .send_request_with_proxy_fallback(&endpoint, &payload_value)
+            .await
+            .map_err(StreamError::Network)?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(StreamError::Provider(format!(
+                "HTTP {}: {}",
+                status.as_u16(),
+                format_error_body(&body_text)
+            )));
+        }
+
+        // Use SSE adapter to convert response to StreamEvent stream
+        let adapter = SseAdapter;
+        adapter.adapt_stream(response).await
     }
 
     fn default_model(&self) -> &str {

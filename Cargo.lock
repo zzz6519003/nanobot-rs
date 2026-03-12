@@ -1163,6 +1163,7 @@ dependencies = [
  "agent-client-protocol",
  "anyhow",
  "async-trait",
+ "bytes",
  "chrono",
  "chrono-tz",
  "clap",
