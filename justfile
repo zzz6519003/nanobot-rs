@@ -59,6 +59,14 @@ build:
 build-release:
   cargo build --release
 
+# Generate changelog entry for a release version
+changelog version:
+  bash scripts/generate-changelog.sh {{version}}
+
+# Preview changelog entry without writing files
+changelog-preview version:
+  bash scripts/generate-changelog.sh {{version}} --dry-run
+
 # Run with arbitrary arguments, e.g. `just run agent -m "hello"`
 run *args:
   cargo run -- {{args}}

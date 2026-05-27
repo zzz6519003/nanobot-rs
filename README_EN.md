@@ -42,7 +42,7 @@
 
 ### 1. Requirements
 
-- Rust (stable recommended)
+- Rust 1.95
 - `cargo`, `just` (optional)
 
 ### 2. Bootstrapping
@@ -107,6 +107,7 @@ GitHub Actions are configured for:
 - `Release`: cross-platform packaging and automatic GitHub Release on `v*` tags
 
 See `docs/DEPLOYMENT.md` for release details.
+Before tagging, you can run `just changelog vX.Y.Z` to auto-generate a `CHANGELOG.md` entry.
 
 ## Development Commands
 

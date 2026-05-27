@@ -17,6 +17,8 @@ just e2e             # 离线端到端测试
 just e2e-codex       # 离线端到端测试（含 codex MCP connect smoke）
 just ci              # 本地 CI 流程
 just build-release   # 本地构建 release 二进制
+just changelog vX.Y.Z        # 为版本生成 CHANGELOG 条目
+just changelog-preview vX.Y.Z # 预览 changelog 条目（不落盘）
 ```
 
 也可以直接使用 Cargo：
@@ -98,6 +100,24 @@ RUST_LOG=nanobot::agent=trace cargo run -- agent -m "hello"
 
 - `CI`：在 `Linux / macOS / Windows` 上执行 `fmt + clippy + test`
 - `Release`：在 `Linux / macOS / Windows` 上构建发行包，并在 tag push 时创建 GitHub Release
+
+## 发版 changelog 维护
+
+仓库提供发布 changelog 自动生成脚本与 skill：
+
+- 脚本：`scripts/generate-changelog.sh`
+- skill：`skills/release-changelog/SKILL.md`
+
+推荐流程：
+
+```bash
+just changelog-preview v0.0.4
+just changelog v0.0.4
+git add CHANGELOG.md
+git commit -m "Update changelog for v0.0.4"
+git tag v0.0.4
+git push origin main --tags
+```
 
 建议在提交前至少本地执行：
 

@@ -42,7 +42,7 @@
 
 ### 1. 环境要求
 
-- Rust（建议 stable）
+- Rust 1.95
 - `cargo`, `just`（可选）
 
 ### 2. 启动
@@ -107,6 +107,7 @@ DeepSeek（Anthropic-compatible）：
 - `Release`：在 Linux / macOS / Windows 上构建发行包；推送 `v*` tag 时自动创建 GitHub Release
 
 具体发布说明见 `docs/DEPLOYMENT.md`。
+发布前可用 `just changelog vX.Y.Z` 自动生成 `CHANGELOG.md` 条目。
 
 ## 开发命令
 
