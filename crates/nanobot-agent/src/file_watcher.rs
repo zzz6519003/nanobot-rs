@@ -229,9 +229,7 @@ impl FileWatcher {
 
         // Compute changed names by diffing old vs new
         let event = if old_entries.is_empty() {
-            WatchEvent::Initial {
-                files: new_entries,
-            }
+            WatchEvent::Initial { files: new_entries }
         } else {
             let changed_names: HashSet<String> = new_entries
                 .iter()

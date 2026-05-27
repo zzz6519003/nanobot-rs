@@ -448,10 +448,27 @@ fn response_final(protocol: MockProtocol, content: &str) -> Value {
 }
 
 fn binary_path() -> PathBuf {
-    if let Some(path) = std::env::var_os("CARGO_BIN_EXE") {
+    if let Some(path) = std::env::var_os("CARGO_BIN_EXE_nanobot") {
         return PathBuf::from(path);
     }
-    PathBuf::from("target/debug/nanobot-rs")
+
+    // Integration tests run from the package directory, not necessarily from the
+    // workspace root, so derive an absolute fallback path from the manifest dir.
+    let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|p| p.parent())
+        .expect("workspace root from manifest dir")
+        .to_path_buf();
+
+    #[cfg(target_os = "windows")]
+    {
+        return workspace_root.join("target/debug/nanobot.exe");
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        workspace_root.join("target/debug/nanobot")
+    }
 }
 
 async fn run_nanobot(
@@ -461,8 +478,11 @@ async fn run_nanobot(
     extra_env: &[(&str, &str)],
 ) -> Result<Output> {
     let mut cmd = tokio::process::Command::new(bin);
+    // `dirs::home_dir()` relies on different environment variables depending on
+    // the platform, so the tests pin both to the temp directory.
     cmd.args(args)
         .env("HOME", home)
+        .env("USERPROFILE", home)
         .env("NO_PROXY", "127.0.0.1,localhost")
         .env("no_proxy", "127.0.0.1,localhost")
         .stdout(Stdio::piped())
@@ -647,7 +667,7 @@ async fn e2e_cli_runtime_tools_session_offline() -> Result<()> {
     let status = run_nanobot(&bin, home_path, &["status"], &[]).await?;
     assert_success(&status, "status");
     let status_text = output_text(&status);
-    assert!(status_text.contains("nanobot-rs Status"));
+    assert!(status_text.contains("nanobot Status"));
     assert!(status_text.contains("Workspace:"));
 
     eprintln!("[e2e] step: agent");
@@ -807,7 +827,7 @@ async fn codex_mcp_connect_smoke() -> Result<()> {
         &bin,
         home_path,
         &["agent", "-m", "MCP connect smoke", "-s", "cli:mcp"],
-        &[("RUST_LOG", "nanobot.tools=info")],
+        &[("RUST_LOG", "nanobot::tools=info")],
     )
     .await?;
 

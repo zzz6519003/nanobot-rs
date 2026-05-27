@@ -61,12 +61,20 @@
 
 ## 4. providers
 
-当前支持的 provider 键：
+### 4.1 当前支持的“模型提供商”范围
 
-- `anthropic`
-- `openai`
-- `custom`
-- `github_copilot`
+当前实现分两层：
+
+1. **Provider 协议类型（真正决定调用逻辑）**
+   - `anthropic`（Anthropic Messages API）
+   - `open_ai_compatible`（OpenAI 兼容协议，支持 `responses` / `chat_completions`）
+   - `oauth`（仅 OAuth 类型，不作为主 LLM provider 注入）
+
+2. **内置 provider 键（默认配置里自带）**
+   - `anthropic`
+   - `openai`
+   - `custom`
+   - `github_copilot`
 
 `provider` 名称支持别名归一化（如 `github-copilot`、`githubCopilot` 会归一为 `github_copilot`）。
 
@@ -90,12 +98,70 @@
 `provider=auto` 时，会按模型名和已配置鉴权信息推断 provider。  
 `fallbackProviders` 配置后，会按顺序构建 fallback 链。
 
+DeepSeek（OpenAI-compatible）示例：
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "provider": "deepseek"
+    }
+  },
+  "providers": {
+    "deepseek": {
+      "providerType": "openai",
+      "wireApi": "chat_completions",
+      "model": "deepseek-chat",
+      "apiBase": "https://api.deepseek.com/v1",
+      "apiKey": "{{DEEPSEEK_API_KEY}}"
+    }
+  }
+}
+```
+
+DeepSeek（Anthropic-compatible）示例：
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "provider": "deepseek_anthropic"
+    }
+  },
+  "providers": {
+    "deepseek_anthropic": {
+      "providerType": "anthropic",
+      "model": "deepseek-v4-flash",
+      "apiBase": "https://api.deepseek.com/anthropic",
+      "apiKey": "{{ANTHROPIC_AUTH_TOKEN}}",
+      "extraHeaders": {
+        "anthropic-version": "2023-06-01"
+      }
+    }
+  }
+}
+```
+
 注意：
 
 - `github_copilot` 当前不作为主 LLM provider 注入运行时（应通过 ACP 工具使用）。
 - `custom` 默认走 OpenAI-compatible `responses` 路径，可通过 `wireApi` 切换到 `chat/completions`；默认 `apiBase` 为 `http://localhost:8000/v1`（未配置时）。
 
 ## 5. channels
+
+### 5.1 当前支持的 channel（按源码状态）
+
+| Channel | 配置键 | 当前状态 |
+|---|---|---|
+| CLI | 无（内置） | 可用（本地终端） |
+| Telegram | `channels.telegram` | 可用（完整适配器） |
+| Discord | `channels.discord` | 占位实现（Placeholder） |
+| Feishu | `channels.feishu` | 占位实现（Placeholder） |
+
+说明：
+
+- `channels` 配置结构当前只定义了 `telegram/discord/feishu` 三个外部通道键。
+- 其他未在结构中定义的 channel 键不会被当前运行时接入。
 
 公共字段：
 
@@ -139,7 +205,7 @@ Telegram 额外字段：
 - `heartbeat.enabled`: 默认 `true`
 - `heartbeat.intervalS`: 默认 `1800`
 
-说明：当前二进制的 `gateway` 子命令会启动 channels + cron + heartbeat + agent loop。`host/port` 字段已保留并校验，但不代表已暴露独立 HTTP API 服务。
+说明：当前二进制的 `gateway` 子命令会启动 channels + cron + heartbeat + agent loop。`host/port` 字段仅为保留配置，当前不生效，也不代表已暴露独立 HTTP API 服务。
 
 ## 8. acp（可选）
 

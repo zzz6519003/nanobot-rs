@@ -13,9 +13,23 @@ concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  BIN_NAME: nanobot
+
 jobs:
-  build-and-release:
-    runs-on: ubuntu-latest
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
 
     steps:
       - name: Checkout
@@ -23,43 +37,58 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
+      - name: Resolve release version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            version="manual-${GITHUB_RUN_NUMBER}"
+          else
+            version="${GITHUB_REF_NAME}"
+          fi
+          echo "value=${version}" >> "${GITHUB_OUTPUT}"
+
       - name: Build release binary
-        run: cargo build --release
+        run: cargo build --release --locked --package nanobot --bin nanobot --target ${{ matrix.target }}
 
       - name: Package artifact
         id: package
         shell: bash
-        run: |
-          set -euo pipefail
-          BIN_NAME="nanobot-rs"
-          TARGET_TRIPLE="x86_64-unknown-linux-gnu"
+        env:
+          TARGET_TRIPLE: ${{ matrix.target }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: ./scripts/package-release.sh
 
-          VERSION="${GITHUB_REF_NAME}"
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            VERSION="manual-${GITHUB_RUN_NUMBER}"
-          fi
-
-          ARCHIVE="${BIN_NAME}-${VERSION}-${TARGET_TRIPLE}.tar.gz"
-
-          mkdir -p dist
-          cp "target/release/${BIN_NAME}" "dist/${BIN_NAME}"
-          tar -czf "${ARCHIVE}" -C dist "${BIN_NAME}"
-
-          echo "archive=${ARCHIVE}" >> "${GITHUB_OUTPUT}"
-
-      - name: Upload artifact
+      - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.package.outputs.archive }}
+          name: ${{ matrix.target }}
           path: ${{ steps.package.outputs.archive }}
 
+  publish:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download packaged artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      # GitHub Release 需要 `contents: write`。仓库如果收紧了默认权限，
+      # 这里会直接失败，因此把要求写在 workflow 里而不是依赖仓库默认值。
       - name: Create GitHub release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.package.outputs.archive }}
+          files: release-artifacts/*
           generate_release_notes: true

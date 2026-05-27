@@ -4,16 +4,17 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tracing::{debug, info, warn};
 
+use crate::error::AgentResult;
 use nanobot_provider::LLMProvider;
 use nanobot_tools::{ToolContext, ToolRegistry};
 use nanobot_types::provider::{AssistantToolCall, ChatMessage, UsageStats};
-use crate::error::AgentResult;
 
 use super::planner::{ModelConfig, Planner, ProgressEmitter};
 use super::state::{LoopExitReason, LoopOutcome, LoopState};
 use super::tool_runner::ToolRunner;
 
-const TARGET_REACT: &str = "nanobot.react";
+use super::TARGET;
+
 const TOOL_RESULT_MAX_CHARS: usize = 480;
 
 /// ReAct loop executor
@@ -51,7 +52,7 @@ impl ReActExecutor {
         loop {
             // Check cancellation
             if context.is_cancelled() {
-                info!(target: TARGET_REACT, "ReAct loop cancelled");
+                info!(target: TARGET, "ReAct loop cancelled");
                 return Ok(LoopOutcome::new(
                     None,
                     messages,
@@ -66,7 +67,7 @@ impl ReActExecutor {
                     iterations = iteration;
 
                     if iteration >= self.max_iterations {
-                        warn!(target: TARGET_REACT, iteration, "Max iterations reached");
+                        warn!(target: TARGET, iteration, "Max iterations reached");
                         return Ok(LoopOutcome::new(
                             None,
                             messages,
@@ -85,7 +86,7 @@ impl ReActExecutor {
                             last_usage = Some(response.usage.clone());
                             if response.is_truncated() {
                                 warn!(
-                                    target: TARGET_REACT,
+                                    target: TARGET,
                                     iteration,
                                     "Response truncated due to max_tokens limit"
                                 );
@@ -129,7 +130,7 @@ impl ReActExecutor {
                                 }
                             } else {
                                 debug!(
-                                    target: TARGET_REACT,
+                                    target: TARGET,
                                     iteration,
                                     "Model wants to use tools"
                                 );
@@ -157,7 +158,7 @@ impl ReActExecutor {
                             }
                         }
                         Err(err) => {
-                            warn!(target: TARGET_REACT, error = %err, "Provider error");
+                            warn!(target: TARGET, error = %err, "Provider error");
                             return Ok(LoopOutcome::new(
                                 None,
                                 messages,
@@ -169,7 +170,7 @@ impl ReActExecutor {
                     }
                 }
                 LoopState::ExecuteTool { iteration, step } => {
-                    debug!(target: TARGET_REACT, iteration, step, "Executing tool");
+                    debug!(target: TARGET, iteration, step, "Executing tool");
 
                     let tool_calls: Vec<nanobot_types::provider::ToolCallRequest> = messages
                         .last()
@@ -188,7 +189,7 @@ impl ReActExecutor {
 
                     if tool_calls.is_empty() {
                         warn!(
-                            target: TARGET_REACT,
+                            target: TARGET,
                             "No tool calls found in assistant message"
                         );
                         state = LoopState::QueryModel {
@@ -199,10 +200,8 @@ impl ReActExecutor {
 
                     if let Some(progress) = &progress {
                         let tc = &tool_calls[0];
-                        progress.send_tool_hint(&format!(
-                            "Executing tool: {} (id={})",
-                            tc.name, tc.id
-                        ));
+                        progress
+                            .send_tool_hint(&format!("Executing tool: {} (id={})", tc.name, tc.id));
                     }
 
                     let tool_context = context.to_tool_context();

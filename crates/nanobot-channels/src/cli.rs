@@ -2,9 +2,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use async_trait::async_trait;
 
-use nanobot_bus::OutboundMessage;
 use crate::base::{ChannelAdapter, SendOutcome};
 use crate::error::ChannelResult;
+use nanobot_bus::OutboundMessage;
 
 pub struct CliChannel {
     running: AtomicBool,
@@ -38,7 +38,7 @@ impl ChannelAdapter for CliChannel {
         if msg.content.trim().is_empty() {
             return Ok(SendOutcome::default());
         }
-        println!("\n🐈 [{}:{}]\n{}\n", msg.channel, msg.chat_id, msg.content);
+        println!("\n[{}:{}]\n{}\n", msg.channel, msg.chat_id, msg.content);
         Ok(SendOutcome::default())
     }
 

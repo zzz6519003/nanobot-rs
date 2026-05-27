@@ -4,11 +4,9 @@ use async_trait::async_trait;
 use serde_json::json;
 use url::Url;
 
-use crate::error::{ToolError, ToolResult};
-use crate::base::{
-    Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json,
-};
+use crate::base::{Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json};
 use crate::config::SharedToolConfig;
+use crate::error::{ToolError, ToolResult};
 use nanobot_types::tools::{BraveSearchResponse, WebFetchArgs, WebFetchResponse, WebSearchArgs};
 
 // Tool descriptions
@@ -303,9 +301,9 @@ fn build_client(proxy: Option<&str>) -> ToolResult<reqwest::Client> {
             builder = builder.proxy(proxy);
         }
     }
-    builder.build().map_err(|e| {
-        ToolError::execution("web", anyhow::anyhow!("building web client: {}", e))
-    })
+    builder
+        .build()
+        .map_err(|e| ToolError::execution("web", anyhow::anyhow!("building web client: {}", e)))
 }
 
 #[cfg(test)]

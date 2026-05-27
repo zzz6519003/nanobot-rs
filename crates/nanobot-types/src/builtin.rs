@@ -97,7 +97,11 @@ mod tests {
     fn all_tool_names_are_unique() {
         let mut names = HashSet::new();
         for tool in BuiltinTool::core_tools() {
-            assert!(names.insert(tool.name()), "duplicate tool name: {}", tool.name());
+            assert!(
+                names.insert(tool.name()),
+                "duplicate tool name: {}",
+                tool.name()
+            );
         }
     }
 }

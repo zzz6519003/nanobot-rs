@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use nanobot_types::BuiltinTool;
+use nanobot_types::builtin::BuiltinTool;
 
+// TODO: unused now
 /// Represents a tool name, either built-in or dynamic.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ToolName {
@@ -56,10 +57,8 @@ impl From<BuiltinTool> for ToolName {
 
 impl From<String> for ToolName {
     fn from(name: String) -> Self {
-        use std::str::FromStr;
-
         // Try to parse as builtin first
-        if let Ok(tool) = BuiltinTool::from_str(&name) {
+        if let Ok(tool) = name.parse::<BuiltinTool>() {
             Self::Builtin(tool)
         } else {
             Self::Dynamic(name)

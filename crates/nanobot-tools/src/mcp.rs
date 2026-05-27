@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use http::{HeaderName, HeaderValue};
-const TARGET_TOOLS: &str = "nanobot.tools";
 use rmcp::model::{
     CallToolRequestParams, CallToolResult, ClientInfo, ProtocolVersion, RawContent,
     Tool as MCPRemoteTool,
@@ -18,11 +17,13 @@ use tokio::process::Command;
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
 
-use nanobot_config::MCPServerConfig;
 use crate::error::{ToolError, ToolResult};
+use nanobot_config::MCPServerConfig;
 
 use crate::base::{JsonSchema, Tool, ToolContext, ToolDefinition};
 use crate::registry::ToolRegistry;
+
+const TARGET: &str = "nanobot::tools";
 
 type MCPRunningClient = RunningService<RoleClient, ClientInfo>;
 
@@ -80,7 +81,7 @@ impl MCPManager {
         for (server_name, cfg) in &self.servers {
             if cfg.command.trim().is_empty() && cfg.url.trim().is_empty() {
                 warn!(
-                    target: TARGET_TOOLS,
+                    target: TARGET,
                     "MCP server '{}': no command or url configured, skipping",
                     server_name
                 );
@@ -93,7 +94,7 @@ impl MCPManager {
                         Ok(v) => v,
                         Err(err) => {
                             error!(
-                                target: TARGET_TOOLS,
+                                target: TARGET,
                                 "MCP server '{}': list_tools failed: {}",
                                 server_name,
                                 err
@@ -114,7 +115,7 @@ impl MCPManager {
                         let name = wrapper.name().to_string();
                         if let Err(err) = registry.register_dynamic_tool(wrapper) {
                             warn!(
-                                target: TARGET_TOOLS,
+                                target: TARGET,
                                 "MCP server '{}': failed to register tool '{}': {}",
                                 server_name, name, err
                             );
@@ -125,7 +126,7 @@ impl MCPManager {
                     }
 
                     info!(
-                        target: TARGET_TOOLS,
+                        target: TARGET,
                         "MCP server '{}': connected, {} tools registered",
                         server_name, count
                     );
@@ -133,7 +134,7 @@ impl MCPManager {
                 }
                 Err(err) => {
                     error!(
-                        target: TARGET_TOOLS,
+                        target: TARGET,
                         "MCP server '{}': failed to connect: {}",
                         server_name,
                         err
@@ -239,7 +240,7 @@ impl MCPClientSession {
     fn client_info() -> ClientInfo {
         let mut info = ClientInfo::default();
         info.protocol_version = ProtocolVersion::V_2024_11_05;
-        info.client_info.name = "nanobot-rs".to_string();
+        info.client_info.name = "nanobot".to_string();
         info.client_info.version = env!("CARGO_PKG_VERSION").to_string();
         info
     }
@@ -254,9 +255,10 @@ impl MCPClientSession {
 
     async fn list_tools(&self) -> ToolResult<Vec<MCPRemoteTool>> {
         let peer = self.peer().await?;
-        let tools = peer.list_all_tools().await.map_err(|e| {
-            ToolError::mcp_server(&self.name, format!("list tools failed: {}", e))
-        })?;
+        let tools = peer
+            .list_all_tools()
+            .await
+            .map_err(|e| ToolError::mcp_server(&self.name, format!("list tools failed: {}", e)))?;
         Ok(tools)
     }
 
@@ -284,7 +286,7 @@ impl MCPClientSession {
             && let Err(err) = client.cancel().await
         {
             warn!(
-                target: TARGET_TOOLS,
+                target: TARGET,
                 "MCP server '{}': close failed: {}",
                 self.name,
                 err
@@ -395,10 +397,7 @@ impl Tool for MCPToolWrapper {
 
     async fn execute(&self, args_json: &str, _ctx: &ToolContext) -> ToolResult<String> {
         let args_value: serde_json::Value = serde_json::from_str(args_json).map_err(|e| {
-            ToolError::invalid_args(
-                &self.name,
-                format!("invalid MCP tool arguments: {}", e),
-            )
+            ToolError::invalid_args(&self.name, format!("invalid MCP tool arguments: {}", e))
         })?;
         let args_obj = match args_value {
             serde_json::Value::Object(map) => map,
@@ -434,9 +433,9 @@ mod tests {
     use std::sync::Arc;
 
     use super::*;
-    use nanobot_config::{ExecToolConfig, WebToolsConfig};
     use crate::base::ToolContext;
     use crate::registry::ToolRegistry;
+    use nanobot_config::{ExecToolConfig, WebToolsConfig};
     use nanobot_types::SessionKey;
 
     fn definition_names(defs: Vec<Arc<ToolDefinition>>) -> HashSet<String> {
@@ -599,10 +598,7 @@ while True:
         let mut body = vec![0u8; len];
         if len > 0 {
             reader.read_exact(&mut body).await.map_err(|e| {
-                ToolError::execution(
-                    "mcp_test",
-                    anyhow::anyhow!("read request body: {}", e),
-                )
+                ToolError::execution("mcp_test", anyhow::anyhow!("read request body: {}", e))
             })?;
         }
 
@@ -610,10 +606,7 @@ while True:
             serde_json::Value::Null
         } else {
             serde_json::from_slice::<serde_json::Value>(&body).map_err(|e| {
-                ToolError::execution(
-                    "mcp_test",
-                    anyhow::anyhow!("decode request body: {}", e),
-                )
+                ToolError::execution("mcp_test", anyhow::anyhow!("decode request body: {}", e))
             })?
         };
 
@@ -708,9 +701,7 @@ while True:
             "id": id,
             "result": result
         }))
-        .map_err(|e| {
-            ToolError::execution("mcp_test", anyhow::anyhow!("encode response: {}", e))
-        })?;
+        .map_err(|e| ToolError::execution("mcp_test", anyhow::anyhow!("encode response: {}", e)))?;
 
         write_http_response(stream, "200 OK", &payload).await
     }
@@ -727,10 +718,7 @@ while True:
                 ToolError::execution("mcp_test", anyhow::anyhow!("bind mock server: {}", e))
             })?;
         let addr = listener.local_addr().map_err(|e| {
-            ToolError::execution(
-                "mcp_test",
-                anyhow::anyhow!("read mock server addr: {}", e),
-            )
+            ToolError::execution("mcp_test", anyhow::anyhow!("read mock server addr: {}", e))
         })?;
         let headers = Arc::new(Mutex::new(Vec::new()));
         let headers_for_task = headers.clone();

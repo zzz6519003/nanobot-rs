@@ -2,17 +2,17 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::spawn::SpawnService;
-use nanobot_bus::MessageBus;
-use nanobot_config::{ExecToolConfig, WebToolsConfig};
-use nanobot_cron::CronService;
-use crate::error::{ToolError, ToolResult};
 use crate::base::{Tool, ToolContext, ToolDefinition};
 use crate::config::SharedToolConfig;
 use crate::cron::CronTool;
+use crate::error::{ToolError, ToolResult};
 use crate::message::MessageTool;
+use crate::spawn::SpawnService;
 use crate::spawn::SpawnTool;
 use crate::{filesystem, search, shell, web};
+use nanobot_bus::MessageBus;
+use nanobot_config::{ExecToolConfig, WebToolsConfig};
+use nanobot_cron::CronService;
 use nanobot_types::SessionKey;
 use parking_lot::RwLock;
 
@@ -278,18 +278,27 @@ mod tests {
 
     #[tokio::test]
     async fn registry_with_optional_tools_includes_spawn_and_cron() {
+        use crate::spawn::SpawnService;
         use nanobot_bus::MessageBus;
         use nanobot_cron::CronService;
         use nanobot_types::SessionKey;
-        use crate::spawn::SpawnService;
 
         struct MockSpawn;
         #[async_trait::async_trait]
         impl SpawnService for MockSpawn {
-            async fn spawn(&self, task: String, _: Option<String>, _: String, _: String, _: Option<SessionKey>) -> String {
+            async fn spawn(
+                &self,
+                task: String,
+                _: Option<String>,
+                _: String,
+                _: String,
+                _: Option<SessionKey>,
+            ) -> String {
                 format!("spawned: {}", task)
             }
-            async fn cancel_by_session(&self, _: &SessionKey) -> anyhow::Result<usize> { Ok(0) }
+            async fn cancel_by_session(&self, _: &SessionKey) -> anyhow::Result<usize> {
+                Ok(0)
+            }
         }
 
         let workspace = std::env::temp_dir().join("nanobot-reg-with-optional");

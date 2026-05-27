@@ -20,6 +20,12 @@ cargo build --release
 
 二进制位于 `target/release/nanobot`。
 
+如果你不想从源码构建，也可以直接从 GitHub Releases 下载对应平台的发行包：
+
+- Linux：`x86_64-unknown-linux-gnu`
+- macOS：`x86_64-apple-darwin`
+- Windows：`x86_64-pc-windows-msvc`
+
 开发阶段也可以直接使用：
 
 ```bash
@@ -51,7 +57,7 @@ nanobot onboard
     "defaults": {
       "workspace": "~/.nanobot/workspace",
       "model": "anthropic/claude-sonnet-4-5",
-      "provider": "auto",
+      "provider": "anthropic",
       "maxTokens": 8192,
       "temperature": 0.1,
       "maxToolIterations": 40,
@@ -61,8 +67,19 @@ nanobot onboard
   },
   "providers": {
     "anthropic": {
-      "apiKey": "sk-ant-..."
-    }
+      "providerType": "anthropic",
+      "model": "claude-sonnet-4-5",
+      "apiKey": "...",
+      "apiBase": "...",
+      "extraHeaders": null
+    },
+    "openai": {
+      "providerType": "openai",
+      "model": "gpt-5.4",
+      "apiKey": "..",
+      "apiBase": "..",
+      "extraHeaders": null
+    },
   }
 }
 ```
@@ -111,6 +128,50 @@ nanobot onboard
   "providers": {
     "custom": {
       "wireApi": "chat_completions"
+    }
+  }
+}
+```
+
+### DeepSeek（OpenAI-compatible）
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "provider": "deepseek"
+    }
+  },
+  "providers": {
+    "deepseek": {
+      "providerType": "openai",
+      "wireApi": "chat_completions",
+      "model": "deepseek-chat",
+      "apiBase": "https://api.deepseek.com/v1",
+      "apiKey": "{{DEEPSEEK_API_KEY}}"
+    }
+  }
+}
+```
+
+### DeepSeek（Anthropic-compatible）
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "provider": "deepseek_anthropic"
+    }
+  },
+  "providers": {
+    "deepseek_anthropic": {
+      "providerType": "anthropic",
+      "model": "deepseek-v4-flash",
+      "apiBase": "https://api.deepseek.com/anthropic",
+      "apiKey": "{{ANTHROPIC_AUTH_TOKEN}}",
+      "extraHeaders": {
+        "anthropic-version": "2023-06-01"
+      }
     }
   }
 }

@@ -48,7 +48,9 @@ impl ToolName {
 }
 
 impl From<BuiltinTool> for ToolName {
-    fn from(tool: BuiltinTool) -> Self { Self::Builtin(tool) }
+    fn from(tool: BuiltinTool) -> Self {
+        Self::Builtin(tool)
+    }
 }
 
 impl From<String> for ToolName {
@@ -62,7 +64,9 @@ impl From<String> for ToolName {
 }
 
 impl From<&str> for ToolName {
-    fn from(name: &str) -> Self { name.to_string().into() }
+    fn from(name: &str) -> Self {
+        name.to_string().into()
+    }
 }
 
 impl fmt::Display for ToolName {

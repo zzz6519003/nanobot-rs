@@ -13,8 +13,8 @@ use dashmap::DashMap;
 use tokio::fs;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
-use super::traits::SessionStore;
 use super::SessionResult;
+use super::traits::SessionStore;
 use super::types::{Session, SessionEntry, SessionMetadata, SessionMetadataLine, SessionSummary};
 use crate::helpers::{ensure_dir_async, safe_filename};
 
@@ -286,15 +286,11 @@ impl SessionStore for InMemorySessionStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nanobot_provider::{MessageContent, MessageRole};
     use chrono::Duration;
+    use nanobot_provider::{MessageContent, MessageRole};
 
     fn temp_workspace(case: &str) -> PathBuf {
-        std::env::temp_dir().join(format!(
-            "nanobot-rs-session-{}-{}",
-            case,
-            uuid::Uuid::new_v4()
-        ))
+        std::env::temp_dir().join(format!("nanobot-session-{}-{}", case, uuid::Uuid::new_v4()))
     }
 
     fn entry(role: MessageRole, text: &str) -> SessionEntry {

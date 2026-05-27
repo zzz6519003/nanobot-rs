@@ -16,13 +16,14 @@ just test            # cargo test --all-targets --all-features
 just e2e             # 离线端到端测试
 just e2e-codex       # 离线端到端测试（含 codex MCP connect smoke）
 just ci              # 本地 CI 流程
+just build-release   # 本地构建 release 二进制
 ```
 
 也可以直接使用 Cargo：
 
 ```bash
 cargo test
-cargo test --test e2e_local -- --nocapture
+cargo test -p nanobot --test e2e_local -- --nocapture
 cargo run -- agent -m "hi"
 ```
 
@@ -70,7 +71,7 @@ cargo test -- --ignored
 或运行特定测试：
 
 ```bash
-cargo test --test e2e_local codex_mcp_connect_smoke -- --ignored --nocapture
+cargo test -p nanobot --test e2e_local codex_mcp_connect_smoke -- --ignored --nocapture
 ```
 
 ## 调试建议
@@ -79,7 +80,8 @@ cargo test --test e2e_local codex_mcp_connect_smoke -- --ignored --nocapture
 
 ```bash
 RUST_LOG=debug cargo run -- agent -m "hello"
-RUST_LOG=nanobot.agent=trace cargo run -- agent -m "hello"
+RUST_LOG=nanobot::agent=trace cargo run -- agent -m "hello"
+# 每个特点概念的组件都有对应的日志 target，如 agent、provider、tool、session 等，可以按需开启更细粒度的日志输出。
 ```
 
 ### 常用排查点
@@ -89,6 +91,22 @@ RUST_LOG=nanobot.agent=trace cargo run -- agent -m "hello"
 - Provider API base 是否与协议匹配：
   - Anthropic -> `messages`
   - OpenAI / custom -> `responses`（默认）或 `chat/completions`（`wireApi=chat_completions`）
+
+## GitHub Actions
+
+仓库当前包含两条 workflow：
+
+- `CI`：在 `Linux / macOS / Windows` 上执行 `fmt + clippy + test`
+- `Release`：在 `Linux / macOS / Windows` 上构建发行包，并在 tag push 时创建 GitHub Release
+
+建议在提交前至少本地执行：
+
+```bash
+just ci
+just e2e
+```
+
+其中 `just e2e` 对应 workflow 里的 Linux 离线端到端校验，用于覆盖完整运行链路，而不是只做单元测试。
 
 ## 文档维护原则
 

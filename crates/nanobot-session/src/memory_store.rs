@@ -162,11 +162,7 @@ mod tests {
     use super::*;
 
     fn temp_workspace(case: &str) -> PathBuf {
-        std::env::temp_dir().join(format!(
-            "nanobot-rs-memory-{}-{}",
-            case,
-            uuid::Uuid::new_v4()
-        ))
+        std::env::temp_dir().join(format!("nanobot-memory-{}-{}", case, uuid::Uuid::new_v4()))
     }
 
     #[tokio::test]

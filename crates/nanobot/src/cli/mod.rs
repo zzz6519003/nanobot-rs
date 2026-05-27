@@ -82,14 +82,15 @@ pub struct AgentArgs {
 
 #[derive(Debug, Args)]
 pub struct GatewayArgs {
-    // TODO: unused now.
+    // TODO: gateway endpoint is not enabled yet; keep for future compatibility.
     #[arg(
-        long,
+        long = "port",
         short,
         default_value_t = 18790,
-        help = "Port to bind the gateway service."
+        hide = true,
+        help = "Reserved gateway port argument (currently unused)."
     )]
-    pub port: u16,
+    pub _port: u16,
 }
 
 #[derive(Debug, Args)]
@@ -192,7 +193,7 @@ async fn agent(args: AgentArgs) -> NanobotResult<()> {
         runtime.agent.close_mcp().await;
         runtime.agent.close_provider().await;
         let response = response?;
-        println!("\n nanobot response:\n\n{}\n", response);
+        println!("nanobot response:\n{}\n", response);
         return Ok(());
     }
 
@@ -425,7 +426,7 @@ async fn provider_status(args: ProviderStatusArgs) -> NanobotResult<()> {
     Ok(())
 }
 
-async fn gateway(args: GatewayArgs) -> NanobotResult<()> {
+async fn gateway(_args: GatewayArgs) -> NanobotResult<()> {
     let config = load_config(None)?;
     let workspace = get_workspace_path(Some(config.agents.defaults.workspace.as_str())).await?;
     sync_workspace_templates(&workspace, true).await?;
@@ -435,7 +436,7 @@ async fn gateway(args: GatewayArgs) -> NanobotResult<()> {
         runtime.config.channels.clone(),
         runtime.bus.clone(),
     )?);
-    println!("Starting nanobot gateway on port {}...", args.port);
+    println!("Starting nanobot gateway...");
 
     let agent = runtime.agent.clone();
     let bus = runtime.bus.clone();

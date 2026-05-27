@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 
-use crate::LOG_TARGET;
+use crate::TARGET;
 use crate::base::{ChannelAdapter, SendOutcome, is_sender_allowed};
 use crate::error::{ChannelError, ChannelResult};
 use nanobot_bus::{InboundMessage, MessageBus, MessageId, MessageMetadata, OutboundMessage};
@@ -150,7 +150,7 @@ impl ChannelAdapter for TelegramChannel {
                     Ok(v) => v,
                     Err(err) => {
                         warn!(
-                            target: LOG_TARGET,
+                            target: TARGET,
                             "telegram getUpdates request failed: {}",
                             err
                         );
@@ -163,7 +163,7 @@ impl ChannelAdapter for TelegramChannel {
                     Ok(v) => v,
                     Err(err) => {
                         warn!(
-                            target: LOG_TARGET,
+                            target: TARGET,
                             "telegram getUpdates parse failed: {}",
                             err
                         );
@@ -214,7 +214,7 @@ impl ChannelAdapter for TelegramChannel {
                     };
                     if let Err(err) = bus.publish_inbound(inbound) {
                         error!(
-                            target: LOG_TARGET,
+                            target: TARGET,
                             "telegram publish inbound failed: {}",
                             err
                         );
@@ -224,7 +224,7 @@ impl ChannelAdapter for TelegramChannel {
         });
 
         *self.poll_task.lock().await = Some(handle);
-        info!(target: LOG_TARGET, "telegram channel started");
+        info!(target: TARGET, "telegram channel started");
         Ok(())
     }
 

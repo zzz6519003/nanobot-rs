@@ -5,14 +5,13 @@ use std::sync::Arc;
 use anyhow::Context;
 
 use crate::context::ContextBuilder;
+use crate::error::AgentResult;
 use crate::loop_core::AgentLoop;
 use crate::subagent::SubagentManager;
 use crate::traits::ContextProvider;
-use crate::error::AgentResult;
 use nanobot_bus::MessageBus;
 use nanobot_config::schema::{ExecToolConfig, MCPServerConfig, WebToolsConfig};
 use nanobot_cron::CronService;
-use nanobot_prompt::{PromptConfig, PromptProvider};
 use nanobot_provider::LLMProvider;
 use nanobot_session::{
     ConsolidationConfig, FileMemoryProvider, JsonlSessionStore, LlmConsolidationStrategy,
@@ -35,7 +34,7 @@ pub struct AgentConfig {
 impl Default for AgentConfig {
     fn default() -> Self {
         Self {
-            model: "anthropic/claude-opus-4-5".to_string(),
+            model: "anthropic/claude-opus-4-6".to_string(),
             max_iterations: 40,
             temperature: 0.1,
             max_tokens: 8192,
@@ -59,8 +58,6 @@ pub struct AgentLoopBuilder {
     restrict_to_workspace: bool,
     send_usage_summary: bool,
     cron_service: Option<Arc<CronService>>,
-    prompt_provider: Option<Arc<dyn PromptProvider>>,
-    prompt_config: Option<PromptConfig>,
     custom_tools: Vec<Arc<dyn nanobot_tools::Tool>>,
 }
 
@@ -80,8 +77,6 @@ impl AgentLoopBuilder {
             restrict_to_workspace: false,
             send_usage_summary: false,
             cron_service: None,
-            prompt_provider: None,
-            prompt_config: None,
             custom_tools: Vec::new(),
         }
     }
@@ -137,18 +132,6 @@ impl AgentLoopBuilder {
     /// When `true`, appends a token-usage summary to each outbound message.
     pub fn with_send_usage_summary(mut self, enabled: bool) -> Self {
         self.send_usage_summary = enabled;
-        self
-    }
-
-    /// Sets a custom prompt provider for skill-based prompt management.
-    pub fn with_prompt_provider(mut self, provider: Arc<dyn PromptProvider>) -> Self {
-        self.prompt_provider = Some(provider);
-        self
-    }
-
-    /// Sets prompt rendering configuration.
-    pub fn with_prompt_config(mut self, config: PromptConfig) -> Self {
-        self.prompt_config = Some(config);
         self
     }
 
@@ -240,5 +223,3 @@ impl AgentLoopBuilder {
         ))
     }
 }
-
-

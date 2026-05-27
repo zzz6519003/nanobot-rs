@@ -3,12 +3,12 @@ use std::sync::Arc;
 
 use crate::error::ToolResult;
 
+use crate::base::Tool;
+use crate::registry::ToolRegistry;
 use crate::spawn::SpawnService;
 use nanobot_bus::MessageBus;
 use nanobot_config::{ExecToolConfig, WebToolsConfig};
 use nanobot_cron::CronService;
-use crate::base::Tool;
-use crate::registry::ToolRegistry;
 
 /// Builder for ToolRegistry.
 ///
@@ -114,8 +114,8 @@ mod tests {
     use async_trait::async_trait;
 
     use super::*;
-    use crate::spawn::SpawnService;
     use crate::base::{JsonSchema, Tool, ToolContext, ToolDefinition};
+    use crate::spawn::SpawnService;
     use nanobot_types::SessionKey;
 
     #[test]
@@ -166,10 +166,7 @@ mod tests {
             format!("spawned {} {:?}", task, label)
         }
 
-        async fn cancel_by_session(
-            &self,
-            _session_key: &SessionKey,
-        ) -> anyhow::Result<usize> {
+        async fn cancel_by_session(&self, _session_key: &SessionKey) -> anyhow::Result<usize> {
             Ok(0)
         }
     }
@@ -221,11 +218,7 @@ mod tests {
             ))
         }
 
-        async fn execute(
-            &self,
-            _args_json: &str,
-            _ctx: &ToolContext,
-        ) -> crate::ToolResult<String> {
+        async fn execute(&self, _args_json: &str, _ctx: &ToolContext) -> crate::ToolResult<String> {
             Ok("builder-ok".to_string())
         }
     }
@@ -277,11 +270,7 @@ mod tests {
             ))
         }
 
-        async fn execute(
-            &self,
-            _args_json: &str,
-            _ctx: &ToolContext,
-        ) -> crate::ToolResult<String> {
+        async fn execute(&self, _args_json: &str, _ctx: &ToolContext) -> crate::ToolResult<String> {
             Ok(String::new())
         }
     }

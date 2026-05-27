@@ -43,9 +43,8 @@ pub fn parse_args<T>(args_json: &str) -> ToolResult<T>
 where
     T: DeserializeOwned,
 {
-    serde_json::from_str::<T>(args_json).map_err(|e| {
-        ToolError::invalid_args("unknown", format!("invalid tool arguments: {}", e))
-    })
+    serde_json::from_str::<T>(args_json)
+        .map_err(|e| ToolError::invalid_args("unknown", format!("invalid tool arguments: {}", e)))
 }
 
 /// Helper for building ordered schema properties with less boilerplate.

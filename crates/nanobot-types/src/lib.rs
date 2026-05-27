@@ -1,8 +1,8 @@
 pub mod agent;
-pub mod bus;
-pub mod heartbeat;
 pub mod builtin;
+pub mod bus;
 pub mod cron;
+pub mod heartbeat;
 pub mod provider;
 pub mod task;
 pub mod tool_name;
@@ -23,33 +23,51 @@ impl SessionKey {
     }
 
     /// Creates a session key from an owned string.
-    pub fn from_string(s: String) -> Self { Self(s) }
+    pub fn from_string(s: String) -> Self {
+        Self(s)
+    }
     /// Returns the key as a string slice.
-    pub fn as_str(&self) -> &str { &self.0 }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
     /// Consumes the key and returns the underlying string.
-    pub fn into_inner(self) -> String { self.0 }
+    pub fn into_inner(self) -> String {
+        self.0
+    }
     /// Returns `true` if the key is an empty string.
-    pub fn is_empty(&self) -> bool { self.0.is_empty() }
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 impl Default for SessionKey {
-    fn default() -> Self { Self(String::new()) }
+    fn default() -> Self {
+        Self(String::new())
+    }
 }
 
 impl fmt::Display for SessionKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.0) }
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
 impl AsRef<str> for SessionKey {
-    fn as_ref(&self) -> &str { &self.0 }
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
 }
 
 impl From<String> for SessionKey {
-    fn from(s: String) -> Self { Self(s) }
+    fn from(s: String) -> Self {
+        Self(s)
+    }
 }
 
 impl From<&str> for SessionKey {
-    fn from(s: &str) -> Self { Self(s.to_string()) }
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
 }
 
 #[cfg(test)]

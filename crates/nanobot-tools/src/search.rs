@@ -8,11 +8,9 @@ use serde_json::json;
 use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 
-use crate::error::{ToolError, ToolResult};
-use crate::base::{
-    Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json,
-};
+use crate::base::{Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json};
 use crate::config::SharedToolConfig;
+use crate::error::{ToolError, ToolResult};
 
 // Tool descriptions
 const SEARCH_FILES_DESC: &str = "Search for text in files using ripgrep. Fast full-text search across the codebase with regex support.";

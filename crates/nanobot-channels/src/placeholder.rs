@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use async_trait::async_trait;
 use tracing::warn;
 
-use crate::LOG_TARGET;
+use crate::TARGET;
 use crate::base::{ChannelAdapter, SendOutcome};
 use crate::error::ChannelResult;
 use nanobot_bus::OutboundMessage;
@@ -31,8 +31,8 @@ impl ChannelAdapter for PlaceholderChannel {
     async fn start(&self) -> ChannelResult<()> {
         self.running.store(true, Ordering::SeqCst);
         warn!(
-            target: LOG_TARGET,
-            "channel '{}' is enabled but not implemented in nanobot-rs yet",
+            target: TARGET,
+            "channel '{}' is enabled but not implemented in nanobot yet",
             self.name
         );
         Ok(())
@@ -45,7 +45,7 @@ impl ChannelAdapter for PlaceholderChannel {
 
     async fn send(&self, msg: OutboundMessage) -> ChannelResult<SendOutcome> {
         warn!(
-            target: LOG_TARGET,
+            target: TARGET,
             "dropping outbound for unimplemented channel '{}': {}",
             self.name, msg.chat_id
         );

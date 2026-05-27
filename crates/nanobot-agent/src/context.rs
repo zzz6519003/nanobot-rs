@@ -212,11 +212,7 @@ mod tests {
     use super::*;
 
     fn temp_workspace(case: &str) -> PathBuf {
-        std::env::temp_dir().join(format!(
-            "nanobot-rs-context-{}-{}",
-            case,
-            uuid::Uuid::new_v4()
-        ))
+        std::env::temp_dir().join(format!("nanobot-context-{}-{}", case, uuid::Uuid::new_v4()))
     }
 
     #[test]

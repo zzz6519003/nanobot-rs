@@ -1,22 +1,22 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
 use tracing::trace;
 
-use crate::{ProviderError, ProviderResult};
-use crate::proxy::TARGET_PROVIDER;
 use crate::anthropic_types::{
     AnthropicContentBlock, AnthropicErrorResponse, AnthropicInputContentBlock,
     AnthropicInputMessage, AnthropicMessagesPayload, AnthropicMessagesResponse,
     AnthropicToolDefinition, AnthropicUsage,
 };
 use crate::proxy::ProxyFallbackHelper;
+use crate::proxy::TARGET;
 use crate::streaming::{SseAdapter, StreamAdapter, StreamError, StreamResponse};
 use crate::{
     AssistantToolCall, ChatMessage, ChatRequest, LLMProvider, LLMResponse, MessageContent,
     MessageRole, ToolCallRequest, UsageStats,
 };
+use crate::{ProviderError, ProviderResult};
 
 const DEFAULT_API_BASE: &str = "https://api.anthropic.com/v1";
 const DEFAULT_ANTHROPIC_VERSION: &str = "2026-02-15";
@@ -68,6 +68,9 @@ impl AnthropicProvider {
             && let Ok(value) = HeaderValue::from_str(self.api_key.trim())
         {
             headers.insert(HeaderName::from_static("x-api-key"), value);
+            if let Ok(value) = HeaderValue::from_str(&format!("Bearer {}", self.api_key.trim())) {
+                headers.insert(AUTHORIZATION, value);
+            }
         }
 
         headers.insert(
@@ -144,7 +147,7 @@ impl AnthropicProvider {
     ) -> Result<reqwest::Response, reqwest::Error> {
         let headers = self.headers();
         trace!(
-            target: TARGET_PROVIDER,
+            target: TARGET,
             request_kind,
             method = "POST",
             url = endpoint,
@@ -474,7 +477,7 @@ fn redacted_header_map(headers: &HeaderMap) -> HashMap<String, String> {
         .iter()
         .map(|(name, value)| {
             let rendered = match name.as_str() {
-                "x-api-key" => redact_api_key(value),
+                "x-api-key" | "authorization" => redact_api_key(value),
                 _ => value
                     .to_str()
                     .map(str::to_string)
@@ -683,5 +686,31 @@ mod tests {
         );
 
         assert_eq!(provider.endpoint(), "https://api.anthropic.com/v1/messages");
+    }
+
+    #[test]
+    fn headers_include_both_x_api_key_and_bearer_authorization() {
+        let provider = AnthropicProvider::new(
+            "sk-ant-test".to_string(),
+            None,
+            "claude-sonnet-4-5".to_string(),
+            HashMap::new(),
+        );
+
+        let headers = provider.headers();
+        assert_eq!(
+            headers
+                .get("x-api-key")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or_default(),
+            "sk-ant-test"
+        );
+        assert_eq!(
+            headers
+                .get("authorization")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or_default(),
+            "Bearer sk-ant-test"
+        );
     }
 }

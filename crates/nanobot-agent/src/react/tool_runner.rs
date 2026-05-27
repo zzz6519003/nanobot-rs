@@ -3,10 +3,9 @@
 use std::sync::Arc;
 use tracing::{debug, warn};
 
+use super::TARGET;
 use nanobot_tools::{ToolContext, ToolRegistry};
 use nanobot_types::provider::ToolCallRequest;
-
-const TARGET_REACT: &str = "nanobot.react";
 
 /// Executes tool calls and returns observations
 pub struct ToolRunner {
@@ -25,7 +24,7 @@ impl ToolRunner {
         context: &ToolContext,
     ) -> ToolObservation {
         debug!(
-            target: TARGET_REACT,
+            target: TARGET,
             tool_name = %tool_call.name,
             tool_call_id = %tool_call.id,
             "Executing tool"
@@ -42,7 +41,7 @@ impl ToolRunner {
             },
             Err(err) => {
                 warn!(
-                    target: TARGET_REACT,
+                    target: TARGET,
                     tool_name = %tool_call.name,
                     error = %err,
                     "Tool execution failed"

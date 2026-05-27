@@ -293,4 +293,3 @@ fn xml_escape(input: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
 }
-

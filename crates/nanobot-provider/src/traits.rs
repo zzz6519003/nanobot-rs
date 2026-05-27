@@ -5,9 +5,9 @@ use async_trait::async_trait;
 
 use crate::ProviderResult;
 use crate::streaming::{StreamError, StreamEvent, StreamResponse};
-use nanobot_types::tools::ToolDefinition;
 use nanobot_types::SessionKey;
 use nanobot_types::provider::{ChatMessage, LLMResponse};
+use nanobot_types::tools::ToolDefinition;
 
 /// Request payload for LLM chat completion.
 #[derive(Debug, Clone)]

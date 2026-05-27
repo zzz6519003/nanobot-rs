@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
-use nanobot_bus::OutboundMessage;
 use crate::error::ChannelResult;
+use nanobot_bus::OutboundMessage;
 
 /// Result returned by a channel adapter after sending a message.
 #[derive(Debug, Clone, Default)]

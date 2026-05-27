@@ -43,10 +43,10 @@ impl TemplateEngine {
     ///
     /// let mut vars = HashMap::new();
     /// vars.insert("name".to_string(), "Alice".to_string());
-    /// vars.insert("project".to_string(), "nanobot-rs".to_string());
+    /// vars.insert("project".to_string(), "nanobot".to_string());
     ///
     /// let result = engine.render(template, &vars).unwrap();
-    /// assert_eq!(result, "Hello Alice, welcome to nanobot-rs!");
+    /// assert_eq!(result, "Hello Alice, welcome to nanobot!");
     /// ```
     pub fn render(&self, template: &str, vars: &HashMap<String, String>) -> PromptResult<String> {
         let result = self
@@ -190,10 +190,10 @@ mod tests {
 
         let mut vars = HashMap::new();
         vars.insert("name".to_string(), "Alice".to_string());
-        vars.insert("project".to_string(), "nanobot-rs".to_string());
+        vars.insert("project".to_string(), "nanobot".to_string());
 
         let result = engine.render(template, &vars).unwrap();
-        assert_eq!(result, "Hello Alice, welcome to nanobot-rs!");
+        assert_eq!(result, "Hello Alice, welcome to nanobot!");
     }
 
     #[test]
@@ -316,7 +316,10 @@ mod tests {
         });
 
         engine.render_json_env(&mut value).unwrap();
-        assert_eq!(value["providers"]["custom"]["apiBase"], "https://api.example.com/v1");
+        assert_eq!(
+            value["providers"]["custom"]["apiBase"],
+            "https://api.example.com/v1"
+        );
         assert_eq!(value["providers"]["custom"]["apiKey"], "sk-test-456");
 
         unsafe {

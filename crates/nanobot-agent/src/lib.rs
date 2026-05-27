@@ -1,6 +1,7 @@
 pub mod builder;
 pub mod context;
 pub mod error;
+// TODO: remove this old design
 pub mod file_watcher;
 pub mod loop_core;
 pub mod react;

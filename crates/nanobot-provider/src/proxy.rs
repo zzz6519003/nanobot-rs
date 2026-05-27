@@ -3,7 +3,7 @@ use std::env;
 use reqwest::StatusCode;
 use tracing::warn;
 
-pub const TARGET_PROVIDER: &str = "nanobot.provider";
+pub const TARGET: &str = "nanobot::provider";
 
 /// Helper for implementing proxy fallback logic in LLM providers.
 ///
@@ -63,7 +63,7 @@ impl ProxyFallbackHelper {
     pub fn should_retry_response(&self, status: StatusCode, endpoint: &str) -> bool {
         if self.enabled && should_retry_without_proxy_status(status) {
             warn!(
-                target: TARGET_PROVIDER,
+                target: TARGET,
                 status = %status,
                 endpoint = %endpoint,
                 "Gateway error with proxy, retrying without proxy"
@@ -77,7 +77,7 @@ impl ProxyFallbackHelper {
     /// Log that a direct retry is being attempted after a request error.
     pub fn log_retry_after_error(&self, endpoint: &str, error: &impl std::fmt::Display) {
         warn!(
-            target: TARGET_PROVIDER,
+            target: TARGET,
             endpoint,
             error = %error,
             "primary provider request failed, retrying without proxy"
@@ -87,7 +87,7 @@ impl ProxyFallbackHelper {
     /// Log that a direct retry failed.
     pub fn log_retry_failed(&self, endpoint: &str, error: &impl std::fmt::Display) {
         warn!(
-            target: TARGET_PROVIDER,
+            target: TARGET,
             endpoint,
             error = %error,
             "direct provider retry failed after gateway error"
@@ -101,7 +101,7 @@ impl ProxyFallbackHelper {
     pub fn should_retry_error(&self, error: &reqwest::Error, endpoint: &str) -> bool {
         if self.enabled && (error.is_connect() || error.is_timeout()) {
             warn!(
-                target: TARGET_PROVIDER,
+                target: TARGET,
                 error = %error,
                 endpoint = %endpoint,
                 "Connection error with proxy, retrying without proxy"

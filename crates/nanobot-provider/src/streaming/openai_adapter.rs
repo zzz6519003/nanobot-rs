@@ -6,9 +6,7 @@ use futures::StreamExt;
 
 use super::adapter::StreamAdapter;
 use super::events::{StreamError, StreamEvent, StreamResponse};
-use crate::openai_types::{
-    OpenAIResponsesResponse, ResponsesOutputItem, ResponsesStreamEvent,
-};
+use crate::openai_types::{OpenAIResponsesResponse, ResponsesOutputItem, ResponsesStreamEvent};
 
 /// OpenAI Responses streaming adapter.
 ///

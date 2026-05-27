@@ -1,6 +1,6 @@
+use super::SessionResult;
 use super::traits::*;
 use super::types::{ConsolidationOutcome, Session, SessionSummary};
-use super::SessionResult;
 use nanobot_provider::ChatMessage;
 
 /// Composite session manager that orchestrates multiple components.

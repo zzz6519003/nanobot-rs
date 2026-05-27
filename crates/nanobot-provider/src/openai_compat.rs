@@ -7,8 +7,6 @@ use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderName, Header
 use tracing::debug;
 use uuid::Uuid;
 
-use crate::{ProviderError, ProviderResult};
-use crate::proxy::TARGET_PROVIDER;
 use crate::openai_types::{
     OpenAIResponsesResponse, ResponseFunctionCallItem, ResponseFunctionCallOutputItem,
     ResponseInputContent, ResponseInputItem, ResponseInputMessage, ResponseOutputBlock,
@@ -16,12 +14,14 @@ use crate::openai_types::{
     ResponseToolDefinition, ResponsesPayload, ResponsesUsage,
 };
 use crate::proxy::ProxyFallbackHelper;
+use crate::proxy::TARGET;
 use crate::registry::find_spec;
 use crate::streaming::{OpenAiAdapter, StreamAdapter, StreamError, StreamEvent, StreamResponse};
 use crate::{
     ChatMessage, ChatRequest, LLMProvider, LLMResponse, MessageContent, MessageRole,
     ToolCallRequest, UsageStats,
 };
+use crate::{ProviderError, ProviderResult};
 
 #[derive(Debug)]
 pub struct OpenAICompatProvider {
@@ -174,7 +174,7 @@ impl OpenAICompatProvider {
     ) -> Result<reqwest::Response, reqwest::Error> {
         let headers = self.headers();
         debug!(
-            target: TARGET_PROVIDER,
+            target: TARGET,
             request_kind,
             method = "POST",
             url = endpoint,
@@ -280,7 +280,8 @@ impl OpenAICompatProvider {
         req: ChatRequest,
         stream: bool,
     ) -> serde_json::Value {
-        let messages = chat_completions_messages_from_chat_messages(Self::sanitize_messages(req.messages));
+        let messages =
+            chat_completions_messages_from_chat_messages(Self::sanitize_messages(req.messages));
         let tools = req.tools.map(|tools| {
             tools
                 .into_iter()
@@ -334,6 +335,8 @@ struct ChatCompletionsMessage {
     content: Option<String>,
     #[serde(default)]
     tool_calls: Option<Vec<ChatCompletionsToolCall>>,
+    #[serde(default, alias = "reasoningContent")]
+    reasoning_content: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -411,15 +414,17 @@ impl LLMProvider for OpenAICompatProvider {
 
         match self.wire_api {
             ProviderWireApi::Responses => {
-                let parsed = serde_json::from_str::<OpenAIResponsesResponse>(&body_text).map_err(
-                    |e| ProviderError::InvalidResponse(format!("Error parsing LLM response: {}", e)),
-                )?;
+                let parsed =
+                    serde_json::from_str::<OpenAIResponsesResponse>(&body_text).map_err(|e| {
+                        ProviderError::InvalidResponse(format!("Error parsing LLM response: {}", e))
+                    })?;
                 Ok(parse_responses_response(parsed))
             }
             ProviderWireApi::ChatCompletions => {
-                let parsed = serde_json::from_str::<ChatCompletionsResponse>(&body_text).map_err(
-                    |e| ProviderError::InvalidResponse(format!("Error parsing LLM response: {}", e)),
-                )?;
+                let parsed =
+                    serde_json::from_str::<ChatCompletionsResponse>(&body_text).map_err(|e| {
+                        ProviderError::InvalidResponse(format!("Error parsing LLM response: {}", e))
+                    })?;
                 Ok(parse_chat_completions_response(parsed))
             }
         }
@@ -451,7 +456,11 @@ impl LLMProvider for OpenAICompatProvider {
                 .text()
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(StreamError::Provider(format!("HTTP {}: {}", status.as_u16(), body_text)));
+            return Err(StreamError::Provider(format!(
+                "HTTP {}: {}",
+                status.as_u16(),
+                body_text
+            )));
         }
         // Use OpenAI adapter to convert response to StreamEvent stream
         let adapter = OpenAiAdapter;
@@ -603,11 +612,17 @@ fn parse_chat_completions_response(resp: ChatCompletionsResponse) -> LLMResponse
     };
 
     LLMResponse {
-        content: choice.message.content.filter(|text| !text.trim().is_empty()),
+        content: choice
+            .message
+            .content
+            .filter(|text| !text.trim().is_empty()),
         tool_calls,
         finish_reason: choice.finish_reason.unwrap_or_else(|| "stop".to_string()),
         usage,
-        reasoning_content: None,
+        reasoning_content: choice
+            .message
+            .reasoning_content
+            .filter(|text| !text.trim().is_empty()),
         thinking_blocks: None,
     }
 }
@@ -638,6 +653,11 @@ fn chat_completions_messages_from_chat_messages(
                     item["content"] = serde_json::Value::String(content);
                 } else {
                     item["content"] = serde_json::Value::String(String::new());
+                }
+                if let Some(reasoning_content) = message.reasoning_content
+                    && !reasoning_content.trim().is_empty()
+                {
+                    item["reasoning_content"] = serde_json::Value::String(reasoning_content);
                 }
 
                 if let Some(tool_calls) = message.tool_calls
@@ -906,6 +926,37 @@ mod tests {
         assert_eq!(value[3]["type"], "function_call_output");
         assert_eq!(value[3]["call_id"], "call_123");
         assert_eq!(value[3]["output"], "file contents");
+    }
+
+    #[test]
+    fn chat_completions_messages_include_reasoning_content() {
+        let assistant = ChatMessage::assistant(
+            Some("Need a file".to_string()),
+            None,
+            Some("hidden reasoning".to_string()),
+            None,
+        );
+        let messages = chat_completions_messages_from_chat_messages(vec![assistant]);
+        let value = serde_json::to_value(messages).expect("serialize chat completions messages");
+        assert_eq!(value[0]["role"], "assistant");
+        assert_eq!(value[0]["reasoning_content"], "hidden reasoning");
+    }
+
+    #[test]
+    fn parse_chat_completions_response_preserves_reasoning_content() {
+        let response = ChatCompletionsResponse {
+            choices: vec![ChatCompletionsChoice {
+                message: ChatCompletionsMessage {
+                    content: Some("ok".to_string()),
+                    tool_calls: None,
+                    reasoning_content: Some("thinking trace".to_string()),
+                },
+                finish_reason: Some("stop".to_string()),
+            }],
+            usage: None,
+        };
+        let out = parse_chat_completions_response(response);
+        assert_eq!(out.reasoning_content.as_deref(), Some("thinking trace"));
     }
 
     #[test]

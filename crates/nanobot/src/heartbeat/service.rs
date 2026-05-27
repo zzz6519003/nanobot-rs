@@ -13,7 +13,7 @@ use nanobot_provider::{ChatMessage, ChatRequest, LLMProvider};
 use nanobot_types::SessionKey;
 use nanobot_types::heartbeat::HeartbeatDecisionArgs;
 
-pub(crate) const LOG_TARGET: &str = "nanobot.heartbeat";
+pub(crate) const LOG_TARGET: &str = "nanobot::heartbeat";
 
 const HEARTBEAT_SYSTEM_PROMPT: &str = "You are a heartbeat agent. Review HEARTBEAT.md and reply with JSON only: {\"action\":\"run|skip\",\"tasks\":\"...\"}. Use action=skip and empty tasks when no active tasks exist.";
 const HEARTBEAT_USER_PROMPT_PREFIX: &str =
@@ -324,7 +324,7 @@ mod tests {
 
     fn temp_workspace(case: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
-            "nanobot-rs-heartbeat-{}-{}",
+            "nanobot-heartbeat-{}-{}",
             case,
             uuid::Uuid::new_v4()
         ))

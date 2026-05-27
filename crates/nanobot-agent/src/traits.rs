@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
-use crate::skills::SkillInfo;
 use crate::error::AgentResult;
+use crate::skills::SkillInfo;
 use nanobot_session::SessionManager;
 use nanobot_types::SessionKey;
 use nanobot_types::provider::ChatMessage;

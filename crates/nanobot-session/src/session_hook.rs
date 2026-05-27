@@ -5,7 +5,7 @@ use tracing::{debug, info};
 use super::traits::SessionHook;
 use super::types::Session;
 
-const LOG_TARGET: &str = "session_hook";
+const TARGET: &str = "nanobot::session::hook";
 
 /// Logging hook that tracks session lifecycle events.
 pub struct LoggingHook {
@@ -24,7 +24,7 @@ impl LoggingHook {
 impl SessionHook for LoggingHook {
     async fn on_create(&self, session: &Session) -> SessionResult<()> {
         info!(
-            target: LOG_TARGET,
+            target: TARGET,
             prefix = %self.prefix,
             session_key = %session.key,
             "session created"
@@ -34,7 +34,7 @@ impl SessionHook for LoggingHook {
 
     async fn on_before_save(&self, session: &mut Session) -> SessionResult<()> {
         debug!(
-            target: LOG_TARGET,
+            target: TARGET,
             prefix = %self.prefix,
             session_key = %session.key,
             message_count = session.messages.len(),
@@ -45,7 +45,7 @@ impl SessionHook for LoggingHook {
 
     async fn on_after_save(&self, session: &Session) -> SessionResult<()> {
         debug!(
-            target: LOG_TARGET,
+            target: TARGET,
             prefix = %self.prefix,
             session_key = %session.key,
             "after save"
@@ -59,7 +59,7 @@ impl SessionHook for LoggingHook {
         messages_consolidated: usize,
     ) -> SessionResult<()> {
         info!(
-            target: LOG_TARGET,
+            target: TARGET,
             prefix = %self.prefix,
             session_key = %session.key,
             messages_consolidated,
@@ -70,7 +70,7 @@ impl SessionHook for LoggingHook {
 
     async fn on_delete(&self, key: &str) -> SessionResult<()> {
         info!(
-            target: LOG_TARGET,
+            target: TARGET,
             prefix = %self.prefix,
             session_key = %key,
             "session deleted"

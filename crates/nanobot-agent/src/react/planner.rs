@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, trace};
 
+use super::TARGET;
 use crate::error::{AgentError, AgentResult};
 use crate::utils::{Throttle, truncate_text};
 use nanobot_bus::{MessageBus, MessageId, MessageMetadata, OutboundMessage};
@@ -14,7 +15,6 @@ use nanobot_provider::{ChatRequest, LLMProvider};
 use nanobot_tools::base::ToolDefinition;
 use nanobot_types::provider::{ChatMessage, ToolCallRequest, UsageStats};
 
-const TARGET_REACT: &str = "nanobot.react";
 const PROGRESS_MIN_CHARS: usize = 24;
 const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(500);
 const TOOL_HINT_MIN_CHARS: usize = 24;
@@ -40,7 +40,7 @@ impl Planner {
         progress: Option<&ProgressEmitter>,
     ) -> AgentResult<PlannerResponse> {
         debug!(
-            target: TARGET_REACT,
+            target: TARGET,
             iteration = config.iteration,
             message_count = messages.len(),
             "Querying model"
@@ -147,7 +147,7 @@ impl Planner {
         };
 
         trace!(
-            target: TARGET_REACT,
+            target: TARGET,
             content_len = response.content.as_ref().map(|s| s.len()).unwrap_or(0),
             tool_calls = response.tool_calls.len(),
             "Model response received"

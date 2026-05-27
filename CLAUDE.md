@@ -1,6 +1,6 @@
 # Project Context
 
-nanobot-rs is a Rust-based AI agent framework with multi-channel messaging, tool execution, session management, and scheduling capabilities.
+nanobot is a Rust-based AI agent framework with multi-channel messaging, tool execution, session management, and scheduling capabilities.
 
 ## Tech Stack
 

@@ -2,7 +2,7 @@
 name = "code-reviewer"
 description = "AI agent specialized in code review"
 version = "1.0.0"
-author = "nanobot-rs"
+author = "nanobot"
 tags = ["code", "review", "quality"]
 created_at = "2026-03-13T00:00:00Z"
 updated_at = "2026-03-13T00:00:00Z"

@@ -18,7 +18,7 @@ use nanobot_types::cron::{
     CronJob, CronJobState, CronPayload, CronScheduleKind, CronStatus, CronStore, now_ms,
 };
 
-const LOG_TARGET: &str = "nanobot.cron";
+const TARGET: &str = "nanobot::cron";
 
 /// Callback invoked by `CronService` when a scheduled job fires.
 #[async_trait]
@@ -83,12 +83,12 @@ impl CronService {
                     break;
                 }
                 if let Err(err) = this.on_timer().await {
-                    warn!(target: LOG_TARGET, "cron tick failed: {}", err);
+                    warn!(target: TARGET, "cron tick failed: {}", err);
                 }
             }
         });
         *self.timer_task.lock().await = Some(handle);
-        info!(target: LOG_TARGET, "cron service started");
+        info!(target: TARGET, "cron service started");
 
         Ok(())
     }
@@ -199,7 +199,7 @@ impl CronService {
 
         for id in due_ids {
             if let Err(err) = self.execute_job(&id).await {
-                error!(target: LOG_TARGET, "cron job {} failed: {}", id, err);
+                error!(target: TARGET, "cron job {} failed: {}", id, err);
             }
         }
 
@@ -218,7 +218,7 @@ impl CronService {
         };
 
         info!(
-            target: LOG_TARGET,
+            target: TARGET,
             "cron executing job '{}' ({})",
             job_snapshot.name, job_snapshot.id
         );
@@ -354,7 +354,7 @@ fn load_store_sync(path: &Path) -> (CronStore, Option<SystemTime>) {
         }
         Err(err) => {
             warn!(
-                target: LOG_TARGET,
+                target: TARGET,
                 "failed to load cron store '{}': {}",
                 path.display(),
                 err
@@ -395,7 +395,7 @@ mod tests {
 
     fn temp_store_path(case: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
-            "nanobot-rs-cron-{}-{}.json",
+            "nanobot-cron-{}-{}.json",
             case,
             uuid::Uuid::new_v4()
         ))

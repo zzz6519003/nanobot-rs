@@ -7,10 +7,8 @@ use serde_json::json;
 use nanobot_types::SessionKey;
 use nanobot_types::tools::SpawnArgs;
 
+use crate::base::{Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json};
 use crate::error::{ToolError, ToolResult};
-use crate::base::{
-    Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json,
-};
 
 // Tool descriptions
 const SPAWN_DESC: &str = "Spawn a subagent to handle a task in the background. Use this for complex or time-consuming tasks that can run independently. The subagent will complete the task and report back when done.";
@@ -151,10 +149,7 @@ mod tests {
             format!("Spawned: {}", task)
         }
 
-        async fn cancel_by_session(
-            &self,
-            _session_key: &SessionKey,
-        ) -> anyhow::Result<usize> {
+        async fn cancel_by_session(&self, _session_key: &SessionKey) -> anyhow::Result<usize> {
             Ok(1)
         }
     }

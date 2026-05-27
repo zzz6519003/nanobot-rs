@@ -231,9 +231,9 @@ fn format_messages_for_summary(messages: &[SessionEntry]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
     use nanobot_provider::MessageContent;
     use nanobot_provider::MessageRole;
-    use chrono::Utc;
 
     fn create_test_entry(role: MessageRole, text: &str) -> SessionEntry {
         SessionEntry {

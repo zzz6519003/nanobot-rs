@@ -82,7 +82,6 @@ impl Config {
     /// - `max_tool_iterations` is zero
     /// - `memory_window` is zero
     /// - `exec.timeout` is zero
-    /// - `gateway.port` is zero
     /// - `heartbeat.interval_s` is zero when enabled
     pub fn validate(&self) -> ConfigResult<()> {
         // Validate agent defaults
@@ -574,7 +573,6 @@ pub struct ProvidersConfig(pub HashMap<String, ProviderConfig>);
 impl Default for ProvidersConfig {
     fn default() -> Self {
         let mut providers = HashMap::new();
-        providers.insert("custom".to_string(), ProviderConfig::default());
         providers.insert(
             "anthropic".to_string(),
             ProviderConfig {
@@ -656,13 +654,8 @@ impl Default for GatewayConfig {
 impl GatewayConfig {
     /// Validates gateway configuration.
     pub fn validate(&self) -> ConfigResult<()> {
-        if self.port == 0 {
-            return Err(ConfigError::invalid("gateway port cannot be zero"));
-        }
-
-        if self.host.trim().is_empty() {
-            return Err(ConfigError::invalid("gateway host cannot be empty"));
-        }
+        // Gateway host/port endpoint is reserved and currently unused.
+        // Keep fields for config compatibility, but skip endpoint validation for now.
 
         self.heartbeat.validate()?;
 
@@ -1016,7 +1009,7 @@ mod tests {
             r#"{
                 "providers": {
                     "myVendor": {
-                        "providerType": "open_ai_compatible",
+                        "providerType": "openai",
                         "apiKey": "k"
                     }
                 }
@@ -1024,7 +1017,10 @@ mod tests {
         )
         .expect("deserialize config");
         assert!(cfg.provider_config("myVendor").is_some());
-        assert_eq!(cfg.provider_type("myVendor"), ProviderType::OpenAiCompatible);
+        assert_eq!(
+            cfg.provider_type("myVendor"),
+            ProviderType::OpenAiCompatible
+        );
     }
 
     #[test]
@@ -1041,7 +1037,10 @@ mod tests {
         )
         .expect("deserialize config");
 
-        assert_eq!(cfg.provider_type("myVendor"), ProviderType::OpenAiCompatible);
+        assert_eq!(
+            cfg.provider_type("myVendor"),
+            ProviderType::OpenAiCompatible
+        );
     }
 
     #[test]
@@ -1168,17 +1167,17 @@ mod tests {
     }
 
     #[test]
-    fn gateway_validation_rejects_zero_port() {
+    fn gateway_validation_allows_zero_port_when_endpoint_unused() {
         let mut gateway = GatewayConfig::default();
         gateway.port = 0;
-        assert!(gateway.validate().is_err());
+        assert!(gateway.validate().is_ok());
     }
 
     #[test]
-    fn gateway_validation_rejects_empty_host() {
+    fn gateway_validation_allows_empty_host_when_endpoint_unused() {
         let mut gateway = GatewayConfig::default();
         gateway.host = "".to_string();
-        assert!(gateway.validate().is_err());
+        assert!(gateway.validate().is_ok());
     }
 
     #[test]

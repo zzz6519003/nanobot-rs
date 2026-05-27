@@ -3,6 +3,7 @@
 //! This module provides a flexible system for managing custom agent prompts.
 //! Prompts can be loaded from files, validated, and rendered with variable substitution.
 
+// TODO: this module is still in early development and subject to change.
 mod error;
 mod provider;
 mod template;

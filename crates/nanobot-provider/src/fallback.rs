@@ -5,10 +5,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tracing::{debug, warn};
 
-use crate::{ProviderError, ProviderResult};
-use crate::proxy::TARGET_PROVIDER;
+use crate::proxy::TARGET;
 use crate::streaming::{StreamError, StreamResponse};
 use crate::traits::{ChatRequest, LLMProvider};
+use crate::{ProviderError, ProviderResult};
 use nanobot_types::SessionKey;
 use nanobot_types::provider::LLMResponse;
 
@@ -60,7 +60,7 @@ impl LLMProvider for FallbackProvider {
 
         for (index, provider) in self.providers.iter().enumerate() {
             debug!(
-                target: TARGET_PROVIDER,
+                target: TARGET,
                 provider_index = index,
                 total_providers = self.providers.len(),
                 "Attempting provider"
@@ -70,7 +70,7 @@ impl LLMProvider for FallbackProvider {
                 Ok(response) => {
                     if index > 0 {
                         debug!(
-                            target: TARGET_PROVIDER,
+                            target: TARGET,
                             provider_index = index,
                             "Fallback provider succeeded"
                         );
@@ -80,7 +80,7 @@ impl LLMProvider for FallbackProvider {
                 Err(err) => {
                     if err.is_retryable() {
                         warn!(
-                            target: TARGET_PROVIDER,
+                            target: TARGET,
                             provider_index = index,
                             error = %err,
                             "Provider failed with retryable error, trying next provider"
@@ -88,7 +88,7 @@ impl LLMProvider for FallbackProvider {
                         last_error = Some(err);
                     } else {
                         warn!(
-                            target: TARGET_PROVIDER,
+                            target: TARGET,
                             provider_index = index,
                             error = %err,
                             "Provider failed with non-retryable error, aborting fallback"
@@ -107,7 +107,7 @@ impl LLMProvider for FallbackProvider {
 
         for (index, provider) in self.providers.iter().enumerate() {
             debug!(
-                target: TARGET_PROVIDER,
+                target: TARGET,
                 provider_index = index,
                 total_providers = self.providers.len(),
                 "Attempting streaming provider"
@@ -117,7 +117,7 @@ impl LLMProvider for FallbackProvider {
                 Ok(stream) => {
                     if index > 0 {
                         debug!(
-                            target: TARGET_PROVIDER,
+                            target: TARGET,
                             provider_index = index,
                             "Fallback streaming provider succeeded"
                         );
@@ -135,7 +135,7 @@ impl LLMProvider for FallbackProvider {
 
                     if is_retryable {
                         warn!(
-                            target: TARGET_PROVIDER,
+                            target: TARGET,
                             provider_index = index,
                             error = %err,
                             "Streaming provider failed with retryable error, trying next provider"
@@ -143,7 +143,7 @@ impl LLMProvider for FallbackProvider {
                         last_error = Some(err);
                     } else {
                         warn!(
-                            target: TARGET_PROVIDER,
+                            target: TARGET,
                             provider_index = index,
                             error = %err,
                             "Streaming provider failed with non-retryable error, aborting fallback"

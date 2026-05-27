@@ -5,11 +5,9 @@ use async_trait::async_trait;
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 use serde_json::json;
 
-use nanobot_cron::{AddJobParams, CronSchedule, CronScheduleKind, CronService};
+use crate::base::{Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json};
 use crate::error::{ToolError, ToolResult};
-use crate::base::{
-    Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json,
-};
+use nanobot_cron::{AddJobParams, CronSchedule, CronScheduleKind, CronService};
 use nanobot_types::tools::{CronAction, CronArgs};
 
 // Tool descriptions
@@ -117,10 +115,7 @@ impl CronTool {
                 let mut delete_after = false;
                 let schedule = if let Some(sec) = every_seconds {
                     if sec <= 0 {
-                        return Err(ToolError::invalid_args(
-                            "cron",
-                            "every_seconds must be > 0",
-                        ));
+                        return Err(ToolError::invalid_args("cron", "every_seconds must be > 0"));
                     }
                     CronSchedule {
                         kind: CronScheduleKind::Every,
@@ -305,7 +300,7 @@ mod tests {
 
     fn temp_store_path(case: &str) -> std::path::PathBuf {
         std::env::temp_dir().join(format!(
-            "nanobot-rs-tool-cron-{}-{}.json",
+            "nanobot-tool-cron-{}-{}.json",
             case,
             uuid::Uuid::new_v4()
         ))

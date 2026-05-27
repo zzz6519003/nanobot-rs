@@ -10,25 +10,23 @@ use parking_lot::Mutex;
 use tokio::task::AbortHandle;
 use tracing::{Instrument, debug, debug_span, error, info, trace};
 
-use crate::traits::{Agent, ContextProvider};
-use crate::react::{
-    ExecutionContext, LoopOutcome, ModelConfig, ProgressEmitter, ReActExecutor,
-};
 use crate::error::{AgentError, AgentResult};
+use crate::react::LoopExitReason;
+use crate::react::{ExecutionContext, LoopOutcome, ModelConfig, ProgressEmitter, ReActExecutor};
+use crate::traits::{Agent, ContextProvider};
+use crate::utils::preview_text;
 use nanobot_bus::{
     InboundCommand, InboundMessage, MessageBus, MessageId, MessageMetadata, OutboundMessage,
 };
 use nanobot_provider::LLMProvider;
-use crate::react::LoopExitReason;
 use nanobot_session::{ConsolidationOutcome, Session, SessionEntry, SessionManager};
 use nanobot_tools::mcp::MCPManager;
 use nanobot_tools::{ToolContext, ToolRegistry};
 use nanobot_types::SessionKey;
 use nanobot_types::provider::{ChatMessage, MessageContent, MessageRole, UsageStats};
 use nanobot_types::task::TaskId;
-use crate::utils::preview_text;
 
-const TARGET_AGENT: &str = "nanobot.agent";
+const TARGET: &str = "nanobot::agent";
 
 pub struct AgentLoop {
     pub(crate) bus: MessageBus,
@@ -62,7 +60,7 @@ impl AgentLoop {
         if let Some(mcp) = &self.mcp {
             if let Err(err) = mcp.connect_if_needed(&self.tools).await {
                 error!(
-                    target: TARGET_AGENT,
+                    target: TARGET,
                     "failed to connect MCP servers (will retry on next message): {}",
                     err
                 );
@@ -72,22 +70,22 @@ impl AgentLoop {
 
     pub async fn close_mcp(&self) {
         if let Some(mcp) = &self.mcp {
-            debug!(target: TARGET_AGENT, "closing MCP manager");
+            debug!(target: TARGET, "closing MCP manager");
             mcp.close(&self.tools).await;
-            debug!(target: TARGET_AGENT, "MCP manager closed");
+            debug!(target: TARGET, "MCP manager closed");
         }
     }
 
     pub async fn close_provider(&self) {
-        debug!(target: TARGET_AGENT, "closing provider");
+        debug!(target: TARGET, "closing provider");
         self.provider.close().await;
-        debug!(target: TARGET_AGENT, "provider closed");
+        debug!(target: TARGET, "provider closed");
     }
 
     pub async fn run(&self) {
         self.running.store(true, Ordering::Release);
         self.ensure_mcp_connected().await;
-        info!(target: TARGET_AGENT, "agent loop started");
+        info!(target: TARGET, "agent loop started");
         let mut inbound_rx = self.bus.subscribe_inbound();
 
         loop {
@@ -103,7 +101,7 @@ impl AgentLoop {
 
             let command = msg.command();
             debug!(
-                target: TARGET_AGENT,
+                target: TARGET,
                 session_key = %msg.session_key(),
                 channel = %msg.channel,
                 chat_id = %msg.chat_id,
@@ -122,7 +120,7 @@ impl AgentLoop {
             let session_key = msg.session_key();
             let this = self.clone();
             let span = debug_span!(
-                target: TARGET_AGENT,
+                target: TARGET,
                 "dispatch_task",
                 task_id = %task_id,
                 session_key = %session_key,
@@ -143,12 +141,12 @@ impl AgentLoop {
                 .await;
         }
 
-        info!(target: TARGET_AGENT, "agent loop stopped");
+        info!(target: TARGET, "agent loop stopped");
     }
 
     pub async fn stop(&self) {
         self.running.store(false, Ordering::Release);
-        info!(target: TARGET_AGENT, "stopping agent loop");
+        info!(target: TARGET, "stopping agent loop");
         let _ = self.bus.publish_inbound(InboundMessage {
             channel: "system".to_string(),
             sender_id: "system".to_string(),
@@ -169,7 +167,7 @@ impl AgentLoop {
             }
         }
         self.active_tasks.clear();
-        debug!(target: TARGET_AGENT, aborted, "cleared active task registry during shutdown");
+        debug!(target: TARGET, aborted, "cleared active task registry during shutdown");
     }
 
     pub async fn process_direct(
@@ -180,7 +178,7 @@ impl AgentLoop {
         chat_id: &str,
     ) -> AgentResult<String> {
         debug!(
-            target: TARGET_AGENT,
+            target: TARGET,
             session_key = %session_key,
             channel,
             chat_id,
@@ -206,13 +204,17 @@ impl AgentLoop {
             .unwrap_or_default();
         if self.send_usage_summary {
             if let Some(usage_text) = out.as_ref().and_then(|o| o.usage.as_ref()).map(|u| {
-                format!("\n\n---\n_Tokens: {} in / {} out_", u.prompt_tokens.unwrap_or(0), u.completion_tokens.unwrap_or(0))
+                format!(
+                    "\n\n---\n_Tokens: {} in / {} out_",
+                    u.prompt_tokens.unwrap_or(0),
+                    u.completion_tokens.unwrap_or(0)
+                )
             }) {
                 content.push_str(&usage_text);
             }
         }
         debug!(
-            target: TARGET_AGENT,
+            target: TARGET,
             session_key = %session_key,
             channel,
             chat_id,
@@ -289,7 +291,7 @@ impl AgentLoop {
         let lock_wait = lock_wait_start.elapsed();
         if lock_wait > Duration::from_millis(100) {
             debug!(
-                target: TARGET_AGENT,
+                target: TARGET,
                 session_key = %session_key,
                 lock_wait_ms = lock_wait.as_millis(),
                 "acquired session lock after wait"
@@ -299,29 +301,33 @@ impl AgentLoop {
         match self.process_message(msg.clone()).await {
             Ok(Some(out)) => {
                 if let Err(err) = self.bus.publish_outbound(out.message.clone()) {
-                    error!(target: TARGET_AGENT, error = %err, "failed to publish outbound message");
+                    error!(target: TARGET, error = %err, "failed to publish outbound message");
                 }
                 if self.send_usage_summary {
                     if let Some(usage) = out.usage {
                         let usage_msg = OutboundMessage {
                             channel: out.message.channel.clone(),
                             chat_id: out.message.chat_id.clone(),
-                            content: format!("_Tokens: {} in / {} out_", usage.prompt_tokens.unwrap_or(0), usage.completion_tokens.unwrap_or(0)),
+                            content: format!(
+                                "_Tokens: {} in / {} out_",
+                                usage.prompt_tokens.unwrap_or(0),
+                                usage.completion_tokens.unwrap_or(0)
+                            ),
                             reply_to: None,
                             media: Vec::new(),
                             metadata: MessageMetadata::default(),
                         };
                         if let Err(err) = self.bus.publish_outbound(usage_msg) {
-                            error!(target: TARGET_AGENT, session_key = %session_key, error = %err, "failed to publish usage summary");
+                            error!(target: TARGET, session_key = %session_key, error = %err, "failed to publish usage summary");
                         }
                     }
                 }
             }
             Ok(None) => {
-                trace!(target: TARGET_AGENT, session_key = %session_key, "no outbound message to publish");
+                trace!(target: TARGET, session_key = %session_key, "no outbound message to publish");
             }
             Err(err) => {
-                error!(target: TARGET_AGENT, session_key = %session_key, error = %err, "error processing message");
+                error!(target: TARGET, session_key = %session_key, error = %err, "error processing message");
                 let _ = self.bus.publish_outbound(OutboundMessage {
                     channel: msg.channel,
                     chat_id: msg.chat_id,
@@ -351,7 +357,7 @@ impl AgentLoop {
         let after = self.session_locks.len();
         if before != after {
             debug!(
-                target: TARGET_AGENT,
+                target: TARGET,
                 removed = before - after,
                 remaining = after,
                 "cleaned up unused session locks"
@@ -366,12 +372,9 @@ impl AgentLoop {
             .unwrap_or(false)
     }
 
-    async fn process_message(
-        &self,
-        msg: InboundMessage,
-    ) -> AgentResult<Option<OutboundEnvelope>> {
+    async fn process_message(&self, msg: InboundMessage) -> AgentResult<Option<OutboundEnvelope>> {
         trace!(
-            target: TARGET_AGENT,
+            target: TARGET,
             session_key = %msg.session_key(),
             content_preview = %preview_text(msg.content_text(), 120),
             media_count = msg.media.len(),
@@ -380,13 +383,19 @@ impl AgentLoop {
         );
         if msg.channel == "system" {
             return self.process_system_message(msg).await.map(|msg| {
-                msg.map(|message| OutboundEnvelope { message, usage: None })
+                msg.map(|message| OutboundEnvelope {
+                    message,
+                    usage: None,
+                })
             });
         }
 
         if let Some(command) = msg.command() {
             return self.process_builtin_command(msg, command).await.map(|msg| {
-                msg.map(|message| OutboundEnvelope { message, usage: None })
+                msg.map(|message| OutboundEnvelope {
+                    message,
+                    usage: None,
+                })
             });
         }
 
@@ -414,7 +423,11 @@ impl AgentLoop {
                 session_key.as_str(),
                 history,
                 msg.content_text(),
-                if msg.media.is_empty() { None } else { Some(&msg.media) },
+                if msg.media.is_empty() {
+                    None
+                } else {
+                    Some(&msg.media)
+                },
                 Some(&msg.channel),
                 Some(&msg.chat_id),
             )
@@ -572,7 +585,13 @@ impl AgentLoop {
         };
 
         executor
-            .run(messages, self.tools.definitions(), config, exec_context, progress)
+            .run(
+                messages,
+                self.tools.definitions(),
+                config,
+                exec_context,
+                progress,
+            )
             .await
     }
 
@@ -640,7 +659,7 @@ impl AgentLoop {
         }
         session.updated_at = chrono::Utc::now();
         debug!(
-            target: TARGET_AGENT,
+            target: TARGET,
             session_key = %session.key,
             saved = session.messages.len().saturating_sub(before),
             skipped_empty_assistant,
@@ -650,7 +669,6 @@ impl AgentLoop {
             "persisted turn into session history"
         );
     }
-
 }
 
 impl Clone for AgentLoop {
@@ -694,7 +712,8 @@ impl Agent for AgentLoop {
         channel: &str,
         chat_id: &str,
     ) -> AgentResult<String> {
-        self.process_direct(content, session_key, channel, chat_id).await
+        self.process_direct(content, session_key, channel, chat_id)
+            .await
     }
 
     fn has_active_tasks(&self, session_key: &SessionKey) -> bool {
@@ -709,7 +728,3 @@ impl Agent for AgentLoop {
         AgentLoop::close_provider(self).await;
     }
 }
-
-
-
-

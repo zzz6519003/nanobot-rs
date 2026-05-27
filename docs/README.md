@@ -31,6 +31,21 @@
   - 面向贡献者
   - 包含构建、测试、E2E、日志与提交流程
 
+另有一份新手导读文档：
+
+- `docs/OPEN_SOURCE_LEARNING_PATH.md`
+  - 面向初学贡献者
+  - 给出本仓库的阅读路径与上手任务
+
+新增补充参考文档（按当前源码行为维护）：
+
+- `docs/CONFIGURATION.md`
+  - 配置字段、默认值、校验与行为边界
+- `docs/CLI_REFERENCE.md`
+  - CLI 子命令、参数、聊天内建命令
+- `docs/DEPLOYMENT.md`
+  - gateway 运行方式、目录、通道配置、GitHub Release 发版与运维排查
+
 ## 专题文档说明
 
 当前保留的专题文档，例如 provider、streaming、memory 等说明文档，仅用于补充解释某一块**已经落地的当前实现边界**，或明确标注“当前未实现 / 已归档”的状态。

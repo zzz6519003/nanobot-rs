@@ -1,6 +1,6 @@
 # Memory 系统当前实现说明
 
-本文档描述 `nanobot-rs` 中 **当前已经实现** 的 memory 相关结构与职责，不再维护面向未来的增强设计、外部向量数据库集成草案或长篇实施计划。
+本文档描述 `nanobot` 中 **当前已经实现** 的 memory 相关结构与职责，不再维护面向未来的增强设计、外部向量数据库集成草案或长篇实施计划。
 
 ## 目标
 
@@ -21,7 +21,7 @@ memory 相关实现主要位于 `crates/nanobot-session/`：
   - 提供基于工作区文件的 memory 存储
 - `memory_provider.rs`
   - 提供 `FileMemoryProvider` 和 `CompositeMemoryProvider`
-- `manager.rs`
+- `session_manager.rs`
   - `SessionManager` 在保存/读取流程中组合 memory 能力
 - `consolidation_strategy.rs`
   - 会话压缩与 summarization，和 memory 相邻但职责不同
@@ -96,6 +96,8 @@ memory 相关实现主要位于 `crates/nanobot-session/`：
 当前文档层面只需要理解：
 
 - memory 内容保存在 workspace 下的 `memory/` 目录
+- 长期记忆默认文件：`memory/MEMORY.md`
+- 历史记录默认文件：`memory/HISTORY.md`
 - 长期 memory 与 history 以文件方式组织
 - 上层通过 provider trait 访问，不直接依赖底层文件细节
 
@@ -254,7 +256,7 @@ Memory 负责：
 
 ## 结论
 
-当前 `nanobot-rs` 的 memory 系统是一个**轻量、本地优先、文件驱动**的实现。
+当前 `nanobot` 的 memory 系统是一个**轻量、本地优先、文件驱动**的实现。
 
 它的真实定位不是高级知识检索平台，而是：
 

@@ -21,7 +21,10 @@ pub enum ToolError {
 
     /// MCP server error.
     #[error("MCP server '{server_name}' error: {message}")]
-    McpServer { server_name: String, message: String },
+    McpServer {
+        server_name: String,
+        message: String,
+    },
 
     /// Tool configuration error.
     #[error("Tool configuration error: {0}")]

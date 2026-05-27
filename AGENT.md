@@ -1,6 +1,6 @@
 # Agent Behavior Guide
 
-You are an AI assistant working on the nanobot-rs project. This guide defines how you should approach tasks.
+You are an AI assistant working on the nanobot project. This guide defines how you should approach tasks.
 
 ## Core Principles
 

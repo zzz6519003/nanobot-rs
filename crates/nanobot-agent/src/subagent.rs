@@ -8,15 +8,13 @@ use tracing::{error, info};
 
 use crate::skills::SkillsLoader;
 use nanobot_bus::{InboundMessage, MessageBus, MessageMetadata};
-use nanobot_provider::{LLMProvider, ChatRequest};
+use nanobot_provider::{ChatRequest, LLMProvider};
 use nanobot_tools::{ToolContext, ToolRegistry, spawn::SpawnService};
 use nanobot_types::SessionKey;
+use nanobot_types::provider::{AssistantFunctionCall, AssistantToolCall, ChatMessage};
 use nanobot_types::task::TaskId;
-use nanobot_types::provider::{
-    AssistantFunctionCall, AssistantToolCall, ChatMessage,
-};
 
-const TARGET_SUBAGENT: &str = "nanobot.subagent";
+const TARGET: &str = "nanobot::subagent";
 const SUBAGENT_PROMPT_TEMPLATE: &str = "# Subagent\n\nCurrent Time: {runtime}\n\nYou are a subagent spawned by the main agent to complete a specific task. Stay focused and provide a concise final result.\n\n## Workspace\n{workspace}";
 const SUBAGENT_SKILLS_PREAMBLE: &str =
     "## Skills\n\nRead SKILL.md with read_file to use a skill.\n\n";
@@ -123,7 +121,7 @@ impl SubagentManagerInner {
         }
 
         info!(
-            target: TARGET_SUBAGENT,
+            target: TARGET,
             "spawned subagent [{}]: {}",
             task_id,
             display_label
@@ -174,7 +172,7 @@ impl SubagentManagerInner {
         origin_channel: &str,
         origin_chat_id: &str,
     ) {
-        info!(target: TARGET_SUBAGENT, "subagent [{}] starting: {}", task_id, label);
+        info!(target: TARGET, "subagent [{}] starting: {}", task_id, label);
 
         let tool_context = ToolContext {
             channel: origin_channel.to_string(),
@@ -198,17 +196,29 @@ impl SubagentManagerInner {
 
         match outcome {
             Ok(result) => {
-                info!(target: TARGET_SUBAGENT, "subagent [{}] completed", task_id);
+                info!(target: TARGET, "subagent [{}] completed", task_id);
                 announce_result_impl(
-                    &task_id.to_string(), label, task, &result,
-                    origin_channel, origin_chat_id, "ok", &self.bus,
+                    &task_id.to_string(),
+                    label,
+                    task,
+                    &result,
+                    origin_channel,
+                    origin_chat_id,
+                    "ok",
+                    &self.bus,
                 );
             }
             Err(err) => {
-                error!(target: TARGET_SUBAGENT, task_id = %task_id, error = %err, "subagent failed");
+                error!(target: TARGET, task_id = %task_id, error = %err, "subagent failed");
                 announce_result_impl(
-                    &task_id.to_string(), label, task, &format!("Error: {}", err),
-                    origin_channel, origin_chat_id, "error", &self.bus,
+                    &task_id.to_string(),
+                    label,
+                    task,
+                    &format!("Error: {}", err),
+                    origin_channel,
+                    origin_chat_id,
+                    "error",
+                    &self.bus,
                 );
             }
         }
@@ -384,10 +394,6 @@ fn announce_result_impl(
         session_key_override: None,
     };
     if let Err(err) = bus.publish_inbound(msg) {
-        error!(target: TARGET_SUBAGENT, "failed to publish subagent result: {}", err);
+        error!(target: TARGET, "failed to publish subagent result: {}", err);
     }
 }
-
-
-
-

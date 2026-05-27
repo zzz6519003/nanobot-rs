@@ -5,7 +5,7 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 
-use crate::LOG_TARGET;
+use crate::TARGET;
 use crate::base::ChannelAdapter;
 use crate::cli::CliChannel;
 use crate::error::{ChannelError, ChannelResult};
@@ -51,7 +51,7 @@ impl ChannelManager {
         for (name, ch) in &self.channels {
             if let Err(err) = ch.start().await {
                 error!(
-                    target: LOG_TARGET,
+                    target: TARGET,
                     "failed to start channel '{}': {}",
                     name,
                     err
@@ -66,7 +66,7 @@ impl ChannelManager {
         let stream_mode = self.config.stream_mode;
 
         let handle = tokio::spawn(async move {
-            info!(target: LOG_TARGET, "outbound dispatcher started");
+            info!(target: TARGET, "outbound dispatcher started");
             let mut outbound_rx = bus.subscribe_outbound();
             let mut stream_registry: HashMap<String, String> = HashMap::new();
             loop {
@@ -82,14 +82,14 @@ impl ChannelManager {
                             .await
                     {
                         error!(
-                            target: LOG_TARGET,
+                            target: TARGET,
                             "failed to send outbound via '{}': {}",
                             channel.name(),
                             err
                         );
                     }
                 } else {
-                    warn!(target: LOG_TARGET, "unknown channel '{}'", msg.channel);
+                    warn!(target: TARGET, "unknown channel '{}'", msg.channel);
                 }
             }
         });
@@ -104,7 +104,7 @@ impl ChannelManager {
         for (name, ch) in &self.channels {
             if let Err(err) = ch.stop().await {
                 error!(
-                    target: LOG_TARGET,
+                    target: TARGET,
                     "failed to stop channel '{}': {}",
                     name,
                     err

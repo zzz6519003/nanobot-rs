@@ -10,9 +10,7 @@ use tokio::process::Command;
 use crate::error::{ToolError, ToolResult};
 use crate::tool_error;
 
-use crate::base::{
-    Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json,
-};
+use crate::base::{Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json};
 use crate::config::SharedToolConfig;
 use nanobot_types::tools::ExecArgs;
 
@@ -104,12 +102,15 @@ pub async fn execute(
 
     guard_command(&command, &cwd, allowed_dir, restrict_to_workspace)?;
 
-    let mut cmd = Command::new("/bin/sh");
-    cmd.arg("-lc").arg(&command).current_dir(&cwd);
+    // Keep the tool contract stable across platforms by always executing
+    // through the platform-default non-interactive shell.
+    let (program, shell_args) = platform_shell(&command);
+    let mut cmd = Command::new(program);
+    cmd.args(shell_args).current_dir(&cwd);
 
     if !path_append.trim().is_empty() {
         let old_path = std::env::var("PATH").unwrap_or_default();
-        cmd.env("PATH", format!("{}:{}", old_path, path_append));
+        cmd.env("PATH", join_path_env(&old_path, path_append));
     }
 
     cmd.stdout(std::process::Stdio::piped());
@@ -176,6 +177,39 @@ pub async fn execute(
     }
 
     Ok(result)
+}
+
+fn platform_shell(command: &str) -> (&'static str, Vec<&str>) {
+    #[cfg(target_os = "windows")]
+    {
+        // `cmd /C` is the lowest common denominator on GitHub-hosted Windows
+        // runners and on end-user machines. It avoids assuming Git Bash exists.
+        ("cmd", vec!["/C", command])
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        ("/bin/sh", vec!["-lc", command])
+    }
+}
+
+fn join_path_env(existing: &str, append: &str) -> String {
+    let existing_paths = std::env::split_paths(existing).collect::<Vec<_>>();
+    let append_paths = std::env::split_paths(append).collect::<Vec<_>>();
+    let joined = existing_paths
+        .into_iter()
+        .chain(append_paths)
+        .collect::<Vec<_>>();
+    std::env::join_paths(joined)
+        .ok()
+        .and_then(|value| value.into_string().ok())
+        .unwrap_or_else(|| {
+            if existing.trim().is_empty() {
+                append.to_string()
+            } else {
+                format!("{}:{}", existing, append)
+            }
+        })
 }
 
 fn guard_command(
@@ -362,6 +396,15 @@ mod tests {
         let cwd = std::path::PathBuf::from("/tmp");
         let blocked = guard_command("echo hello", &cwd, None, false);
         assert!(blocked.is_ok());
+    }
+
+    #[test]
+    fn join_path_env_uses_os_separator() {
+        let joined = join_path_env("first", "second");
+        let parts = std::env::split_paths(&joined)
+            .map(|p| p.to_string_lossy().to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(parts, vec!["first".to_string(), "second".to_string()]);
     }
 
     #[test]

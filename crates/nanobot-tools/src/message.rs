@@ -4,11 +4,9 @@ use std::sync::{Arc, OnceLock};
 use async_trait::async_trait;
 use serde_json::json;
 
-use nanobot_bus::{MessageBus, MessageId, MessageMetadata, OutboundMessage};
+use crate::base::{Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json};
 use crate::error::{ToolError, ToolResult};
-use crate::base::{
-    Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json,
-};
+use nanobot_bus::{MessageBus, MessageId, MessageMetadata, OutboundMessage};
 use nanobot_types::tools::MessageArgs;
 
 // Tool descriptions

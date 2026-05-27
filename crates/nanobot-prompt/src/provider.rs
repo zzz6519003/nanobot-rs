@@ -51,7 +51,8 @@ impl FilePromptProvider {
 
     /// Get the file path for a prompt
     fn prompt_path(&self, name: &str) -> PathBuf {
-        self.prompts_dir.join(format!("{}.toml", safe_filename(name)))
+        self.prompts_dir
+            .join(format!("{}.toml", safe_filename(name)))
     }
 
     /// Clear the cache for a specific prompt
@@ -110,7 +111,8 @@ impl PromptProvider for FilePromptProvider {
         })?;
 
         // Update cache
-        self.cache.insert(prompt.metadata.name.clone(), prompt.clone());
+        self.cache
+            .insert(prompt.metadata.name.clone(), prompt.clone());
 
         Ok(())
     }
@@ -360,13 +362,13 @@ mod tests {
         let prompt = create_test_prompt("render-test");
 
         let mut vars = HashMap::new();
-        vars.insert("project".to_string(), "nanobot-rs".to_string());
+        vars.insert("project".to_string(), "nanobot".to_string());
         vars.insert("role".to_string(), "code reviewer".to_string());
         vars.insert("workspace".to_string(), "/home/user/project".to_string());
 
         let rendered = provider.render(&prompt, &vars).unwrap();
 
-        assert!(rendered.contains("nanobot-rs"));
+        assert!(rendered.contains("nanobot"));
         assert!(rendered.contains("code reviewer"));
         assert!(rendered.contains("/home/user/project"));
     }

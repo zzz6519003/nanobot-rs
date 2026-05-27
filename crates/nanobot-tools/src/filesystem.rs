@@ -9,9 +9,7 @@ use tokio::fs as async_fs;
 use crate::error::{ToolError, ToolResult};
 use crate::tool_error;
 
-use crate::base::{
-    Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json,
-};
+use crate::base::{Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json};
 use crate::config::SharedToolConfig;
 use nanobot_types::tools::{EditFileArgs, ListDirArgs, ReadFileArgs, WriteFileArgs};
 
@@ -249,7 +247,11 @@ impl Tool for ListDirTool {
     }
 }
 
-async fn resolve_path(path: &str, workspace: &Path, allowed_dir: Option<&Path>) -> ToolResult<PathBuf> {
+async fn resolve_path(
+    path: &str,
+    workspace: &Path,
+    allowed_dir: Option<&Path>,
+) -> ToolResult<PathBuf> {
     let raw = if let Some(rest) = path.strip_prefix("~/") {
         dirs::home_dir()
             .map(|h| h.join(rest))
@@ -431,7 +433,11 @@ async fn edit_file(
     Ok(format!("Successfully edited {}", resolved.display()))
 }
 
-async fn list_dir(args_json: &str, workspace: &Path, allowed_dir: Option<&Path>) -> ToolResult<String> {
+async fn list_dir(
+    args_json: &str,
+    workspace: &Path,
+    allowed_dir: Option<&Path>,
+) -> ToolResult<String> {
     let typed = parse_args::<ListDirArgs>(args_json)?;
     let path = typed.path;
 
@@ -494,11 +500,11 @@ mod tests {
     use super::*;
     use std::fs;
 
-    use nanobot_config::{ExecToolConfig, WebToolsConfig};
     use crate::base::ToolContext;
+    use nanobot_config::{ExecToolConfig, WebToolsConfig};
 
     fn temp_workspace(case: &str) -> PathBuf {
-        std::env::temp_dir().join(format!("nanobot-rs-fs-{}-{}", case, uuid::Uuid::new_v4()))
+        std::env::temp_dir().join(format!("nanobot-fs-{}-{}", case, uuid::Uuid::new_v4()))
     }
 
     fn tool_config(workspace: &Path) -> SharedToolConfig {
@@ -573,10 +579,8 @@ mod tests {
             .canonicalize()
             .expect("canonicalize temp workspace");
 
-        let outside = std::env::temp_dir().join(format!(
-            "nanobot-rs-fs-outside-{}.txt",
-            uuid::Uuid::new_v4()
-        ));
+        let outside =
+            std::env::temp_dir().join(format!("nanobot-fs-outside-{}.txt", uuid::Uuid::new_v4()));
         fs::write(&outside, "outside").expect("seed outside file");
 
         let path_json =

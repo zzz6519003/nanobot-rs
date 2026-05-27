@@ -236,7 +236,7 @@ impl ACPActor {
 
         let initialize_request = InitializeRequest::new(ProtocolVersion::LATEST)
             .client_capabilities(capabilities)
-            .client_info(Implementation::new("nanobot-rs", env!("CARGO_PKG_VERSION")));
+            .client_info(Implementation::new("nanobot", env!("CARGO_PKG_VERSION")));
 
         let initialize_response = connection
             .initialize(initialize_request)

@@ -13,7 +13,6 @@ nanobot-config.workspace = true
 nanobot-bus.workspace = true
 nanobot-session.workspace = true
 nanobot-provider.workspace = true
-nanobot-prompt.workspace = true
 nanobot-tools.workspace = true
 nanobot-cron.workspace = true
 

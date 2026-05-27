@@ -65,7 +65,10 @@ pub fn make_provider(config: &Config) -> ProviderResult<Arc<dyn LLMProvider>> {
     create_single_provider(config, &provider_name)
 }
 
-fn create_single_provider(config: &Config, provider_name: &str) -> ProviderResult<Arc<dyn LLMProvider>> {
+fn create_single_provider(
+    config: &Config,
+    provider_name: &str,
+) -> ProviderResult<Arc<dyn LLMProvider>> {
     let provider_cfg = config
         .provider_config(provider_name)
         .cloned()
@@ -115,13 +118,13 @@ fn create_single_provider(config: &Config, provider_name: &str) -> ProviderResul
         ProviderType::Anthropic => Ok(Arc::new(AnthropicProvider::new(
             provider_cfg.api_key,
             api_base,
-            model.to_string(),
+            model,
             extra_headers,
         ))),
         ProviderType::OpenAiCompatible => Ok(Arc::new(OpenAICompatProvider::new(
             provider_cfg.api_key,
             api_base,
-            model.to_string(),
+            model,
             provider_name.to_string(),
             wire_api,
             extra_headers,

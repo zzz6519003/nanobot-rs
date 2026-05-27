@@ -56,3 +56,6 @@ which = { workspace = true }
 
 # ACP
 agent-client-protocol = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
