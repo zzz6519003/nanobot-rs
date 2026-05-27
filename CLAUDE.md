@@ -143,6 +143,25 @@ RUST_LOG=debug cargo test     # With logs
 - Mocks: Use `mockall` for trait dependencies
 - Temp files: Use `tempfile::tempdir()`
 
+### CI / Quality Gate (before commit)
+
+This repository uses `just` as the canonical local CI entrypoint.  
+Before committing, ensure these pass:
+
+```bash
+just fmt-check   # cargo fmt + taplo format check
+just lint        # taplo lint + cargo clippy --all-targets --all-features
+just test        # cargo test --all-targets --all-features
+# or:
+just ci
+```
+
+Code quality requirements:
+- Keep Rust/TOML formatting clean (no manual style drift)
+- Keep clippy warnings at zero for changed code
+- No debug leftovers (`dbg!`, temporary `println!`, commented-out debug blocks)
+- Keep errors explicit; avoid `unwrap()`/`expect()` in library/runtime paths
+
 ### Common Tasks
 
 **Add a new tool**:

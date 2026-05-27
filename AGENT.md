@@ -38,6 +38,23 @@ cargo clippy            # Check warnings
 cargo fmt               # Format code
 ```
 
+### CI Gate (must pass before commit)
+Use the same checks as local CI parity in `justfile`:
+
+```bash
+just fmt-check
+just lint
+just test
+# or run all at once:
+just ci
+```
+
+Required standards:
+- No formatting drift (`cargo fmt --all -- --check`, `taplo format --check`)
+- No clippy warnings in project scope (`cargo clippy --all-targets --all-features`)
+- All tests pass (`cargo test --all-targets --all-features`)
+- Do not leave debug artifacts (`dbg!`, temporary prints, commented dead code)
+
 ## Common Patterns
 
 ### Trait-First Component Design
