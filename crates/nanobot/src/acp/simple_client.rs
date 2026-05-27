@@ -335,14 +335,12 @@ impl SimpleClientState {
                     }
                 }
             }
-            SessionUpdate::Plan(plan) => {
-                if !plan.entries.is_empty() {
-                    buffer.push_str("\n[plan]\n");
-                    for entry in plan.entries {
-                        buffer.push_str("- ");
-                        buffer.push_str(entry.content.trim());
-                        buffer.push('\n');
-                    }
+            SessionUpdate::Plan(plan) if !plan.entries.is_empty() => {
+                buffer.push_str("\n[plan]\n");
+                for entry in plan.entries {
+                    buffer.push_str("- ");
+                    buffer.push_str(entry.content.trim());
+                    buffer.push('\n');
                 }
             }
             _ => {}
