@@ -1,14 +1,18 @@
 //! ReAct loop state machine types
 
-use nanobot_types::provider::{ChatMessage, UsageStats};
+use nanobot_types::provider::{ChatMessage, ToolCallRequest, UsageStats};
 
 /// State of the ReAct loop
 #[derive(Debug, Clone)]
 pub enum LoopState {
     /// Query the model for next action
     QueryModel { iteration: usize },
-    /// Execute a single tool call
-    ExecuteTool { iteration: usize, step: usize },
+    /// Execute tool calls from the current assistant turn, one by one
+    ExecuteTool {
+        iteration: usize,
+        step: usize,
+        tool_calls: Vec<ToolCallRequest>,
+    },
     /// Loop finished
     Finish { reason: LoopExitReason },
 }

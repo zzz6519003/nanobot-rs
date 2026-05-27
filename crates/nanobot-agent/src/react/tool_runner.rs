@@ -18,7 +18,7 @@ impl ToolRunner {
     }
 
     /// Execute a single tool call and return observation
-    async fn execute_one(
+    pub async fn execute_one(
         &self,
         tool_call: &ToolCallRequest,
         context: &ToolContext,

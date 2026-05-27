@@ -134,6 +134,17 @@ impl ReActExecutor {
                                     iteration,
                                     "Model wants to use tools"
                                 );
+                                let tool_calls: Vec<nanobot_types::provider::ToolCallRequest> =
+                                    response
+                                        .tool_calls
+                                        .iter()
+                                        .map(|tc| nanobot_types::provider::ToolCallRequest {
+                                            id: tc.id.clone(),
+                                            name: tc.name.clone(),
+                                            arguments_json: tc.arguments_json.clone(),
+                                        })
+                                        .collect();
+
                                 let assistant_tool_calls: Vec<AssistantToolCall> = response
                                     .tool_calls
                                     .iter()
@@ -147,7 +158,11 @@ impl ReActExecutor {
                                     })
                                     .collect();
 
-                                state = LoopState::ExecuteTool { iteration, step: 0 };
+                                state = LoopState::ExecuteTool {
+                                    iteration,
+                                    step: 0,
+                                    tool_calls,
+                                };
 
                                 messages.push(ChatMessage::assistant(
                                     response.content,
@@ -169,28 +184,17 @@ impl ReActExecutor {
                         }
                     }
                 }
-                LoopState::ExecuteTool { iteration, step } => {
+                LoopState::ExecuteTool {
+                    iteration,
+                    step,
+                    tool_calls,
+                } => {
                     debug!(target: TARGET, iteration, step, "Executing tool");
 
-                    let tool_calls: Vec<nanobot_types::provider::ToolCallRequest> = messages
-                        .last()
-                        .and_then(|m| m.tool_calls.as_ref())
-                        .map(|calls| {
-                            calls
-                                .iter()
-                                .map(|tc| nanobot_types::provider::ToolCallRequest {
-                                    id: tc.id.clone(),
-                                    name: tc.function.name.as_str().into(),
-                                    arguments_json: tc.function.arguments.clone(),
-                                })
-                                .collect()
-                        })
-                        .unwrap_or_default();
-
-                    if tool_calls.is_empty() {
+                    if tool_calls.is_empty() || step >= tool_calls.len() {
                         warn!(
                             target: TARGET,
-                            "No tool calls found in assistant message"
+                            "No pending tool calls found in assistant message"
                         );
                         state = LoopState::QueryModel {
                             iteration: iteration + 1,
@@ -198,27 +202,22 @@ impl ReActExecutor {
                         continue;
                     }
 
+                    let current_call = &tool_calls[step];
+
                     if let Some(progress) = &progress {
-                        let tc = &tool_calls[0];
-                        progress
-                            .send_tool_hint(&format!("Executing tool: {} (id={})", tc.name, tc.id));
+                        progress.send_tool_hint(&format!(
+                            "Executing tool: {} (id={})",
+                            current_call.name, current_call.id
+                        ));
                     }
 
                     let tool_context = context.to_tool_context();
-                    let (observation, diagnostic) = self
-                        .tool_runner
-                        .execute_with_diagnostic(&tool_calls, &tool_context)
-                        .await;
-
-                    let mut obs_content = observation.content;
-                    if let Some(diag) = diagnostic {
-                        obs_content = format!("{}\n\n{}", diag, obs_content);
-                    }
-
+                    let observation = self.tool_runner.execute_one(current_call, &tool_context).await;
+                    let obs_content = observation.content;
                     let obs_content_for_hint = obs_content.clone();
                     messages.push(ChatMessage::tool_result(
                         observation.tool_call_id,
-                        tool_calls[0].name.to_string(),
+                        current_call.name.to_string(),
                         obs_content,
                     ));
 
@@ -226,13 +225,21 @@ impl ReActExecutor {
                         let result_preview = truncate_tool_result(&obs_content_for_hint);
                         progress.send_tool_hint(&format!(
                             "Tool result: {} (id={}) -> {}",
-                            tool_calls[0].name, tool_calls[0].id, result_preview
+                            current_call.name, current_call.id, result_preview
                         ));
                     }
 
-                    state = LoopState::QueryModel {
-                        iteration: iteration + 1,
-                    };
+                    if step + 1 < tool_calls.len() {
+                        state = LoopState::ExecuteTool {
+                            iteration,
+                            step: step + 1,
+                            tool_calls,
+                        };
+                    } else {
+                        state = LoopState::QueryModel {
+                            iteration: iteration + 1,
+                        };
+                    }
                 }
 
                 LoopState::Finish { reason } => {
