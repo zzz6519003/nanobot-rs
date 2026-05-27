@@ -55,6 +55,13 @@ Required standards:
 - All tests pass (`cargo test --all-targets --all-features`)
 - Do not leave debug artifacts (`dbg!`, temporary prints, commented dead code)
 
+Hook entrypoints:
+
+- Commit gate: `just hook-commit`
+- Push gate: `just hook-push`
+
+Both are unified through `scripts/quality-gate.sh` and are reused by Git hooks / Claude hooks / Codex hook wrappers.
+
 ## Common Patterns
 
 ### Trait-First Component Design

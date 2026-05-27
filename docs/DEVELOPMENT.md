@@ -108,6 +108,44 @@ just e2e
 
 其中 `just e2e` 对应 workflow 里的 Linux 离线端到端校验，用于覆盖完整运行链路，而不是只做单元测试。
 
+## 项目级 Git Hooks（适配 Codex / Claude / Copilot）
+
+本仓库提供版本化 hooks（`.githooks/`）：
+
+- `pre-commit`：调用 `scripts/quality-gate.sh pre-commit`
+- `pre-push`：调用 `scripts/quality-gate.sh pre-push`
+
+实际检查逻辑统一定义在：
+
+- `scripts/quality-gate.sh`
+- `just hook-commit`
+- `just hook-push`
+
+启用方式（执行一次）：
+
+```bash
+bash scripts/setup-git-hooks.sh
+```
+
+说明：
+
+- 这些是 **Git 项目级 hooks**，对通过 `git commit` / `git push` 的 Codex、Claude、Copilot 工作流都生效。
+- 如需临时跳过（不建议常用）：`NANOBOT_SKIP_HOOKS=1 git commit ...`
+
+## Claude 原生 Hooks（项目级）
+
+仓库已提供 `.claude/settings.json`，在 Claude Code 中会在以下场景自动触发：
+
+- `git commit ...` 前：调用 `scripts/quality-gate.sh pre-commit --claude`
+- `git push ...` 前：调用 `scripts/quality-gate.sh pre-push --claude`
+
+当检查失败时，Claude Hook 会拒绝该工具调用（阻止 commit/push）。
+
+## Codex / Copilot 说明
+
+- **Codex**：提供 `.codex/hooks/pre-commit.sh` 和 `.codex/hooks/pre-push.sh`，同样走 `scripts/quality-gate.sh`。
+- **Copilot**：仓库已新增 `.github/copilot-instructions.md`，要求在 commit/push 前执行同等检查。
+
 ## 文档维护原则
 
 本仓库未来只维护三份核心文档：

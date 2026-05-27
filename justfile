@@ -21,6 +21,11 @@ lint:
   taplo lint
   cargo clippy --all-targets --all-features
 
+# Lint TOML and Rust code with warnings denied (CI parity)
+lint-strict:
+  taplo lint
+  cargo clippy --all-targets --all-features -- -D warnings
+
 # Type-check all targets and features
 check:
   cargo check --all-targets --all-features
@@ -39,6 +44,12 @@ e2e-codex:
 
 # Local CI parity
 ci: fmt-check lint test
+
+# Quality gate used by hooks before commit
+hook-commit: fmt-check lint-strict
+
+# Quality gate used by hooks before push
+hook-push: test
 
 # Build debug binary
 build:

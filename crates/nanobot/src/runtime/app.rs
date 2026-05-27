@@ -61,6 +61,7 @@ pub async fn build_runtime(config: Config) -> NanobotResult<RuntimeBundle> {
 
     let mut builder = AgentLoopBuilder::new(bus.clone(), provider, workspace)
         .with_config(agent_config)
+        .with_keep_recent(defaults.keep_recent)
         .with_web_config(config.tools.web.clone())
         .with_exec_config(config.tools.exec.clone())
         .with_mcp_servers(config.tools.mcp_servers.clone())

@@ -62,6 +62,7 @@ nanobot onboard
       "temperature": 0.1,
       "maxToolIterations": 40,
       "memoryWindow": 100,
+      "keepRecent": 10,
       "reasoningEffort": null
     }
   },

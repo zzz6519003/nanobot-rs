@@ -4,4 +4,4 @@ dist/
 build/
 target/**
 _plans/**
-.claude
+.claude/settings.local.json

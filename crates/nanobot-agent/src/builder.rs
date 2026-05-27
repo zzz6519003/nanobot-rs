@@ -93,6 +93,12 @@ impl AgentLoopBuilder {
         self
     }
 
+    /// Sets how many most-recent messages are kept raw during consolidation.
+    pub fn with_keep_recent(mut self, keep_recent: usize) -> Self {
+        self.consolidation_config.keep_recent = keep_recent;
+        self
+    }
+
     /// Enables or disables automatic session consolidation on each save.
     pub fn with_auto_consolidation(mut self, enabled: bool) -> Self {
         self.auto_consolidation = enabled;

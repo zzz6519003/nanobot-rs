@@ -162,6 +162,11 @@ Code quality requirements:
 - No debug leftovers (`dbg!`, temporary `println!`, commented-out debug blocks)
 - Keep errors explicit; avoid `unwrap()`/`expect()` in library/runtime paths
 
+Hook entrypoints (used by Git/Claude/Codex wrappers):
+
+- `just hook-commit`
+- `just hook-push`
+
 ### Common Tasks
 
 **Add a new tool**:

@@ -48,6 +48,7 @@
 - `temperature`: `0.1`
 - `maxToolIterations`: `40`
 - `memoryWindow`: `100`
+- `keepRecent`: `10`
 - `reasoningEffort`: `null`
 - `autoConsolidate`: `true`
 
@@ -57,7 +58,13 @@
 - `temperature` 在 `[0.0, 2.0]`
 - `maxToolIterations > 0`
 - `memoryWindow > 0`
+- `keepRecent > 0` 且 `keepRecent <= memoryWindow`
 - `workspace` / `model` 非空
+
+说明：
+
+- `memoryWindow` 控制每次请求模型时带入的历史窗口大小。
+- `keepRecent` 控制会话 consolidation 时保留为原始消息的最近条数（更早消息会被摘要压缩）。
 
 ## 4. providers
 

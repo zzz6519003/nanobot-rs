@@ -68,6 +68,7 @@ impl Config {
     /// - `temperature` is not in range [0.0, 2.0]
     /// - `max_tool_iterations` is zero
     /// - `memory_window` is zero
+    /// - `keep_recent` is zero or greater than `memory_window`
     /// - `exec.timeout` is zero
     /// - `heartbeat.interval_s` is zero when enabled
     pub fn validate(&self) -> ConfigResult<()> {
@@ -311,6 +312,8 @@ pub struct AgentDefaults {
     pub max_tool_iterations: usize,
     /// Number of recent messages to include in context.
     pub memory_window: usize,
+    /// Number of recent messages kept as raw turns during consolidation.
+    pub keep_recent: usize,
     /// Optional reasoning effort hint for supported providers.
     pub reasoning_effort: Option<String>,
     /// Enables automatic session consolidation after saving turns.
@@ -352,6 +355,7 @@ impl Default for AgentDefaults {
             temperature: 0.1,
             max_tool_iterations: 40,
             memory_window: 100,
+            keep_recent: 10,
             reasoning_effort: None,
             auto_consolidate: true,
             prompt: None,
@@ -382,6 +386,17 @@ impl AgentDefaults {
 
         if self.memory_window == 0 {
             return Err(ConfigError::invalid("memory_window must be positive"));
+        }
+
+        if self.keep_recent == 0 {
+            return Err(ConfigError::invalid("keep_recent must be positive"));
+        }
+
+        if self.keep_recent > self.memory_window {
+            return Err(ConfigError::invalid(format!(
+                "keep_recent ({}) cannot be greater than memory_window ({})",
+                self.keep_recent, self.memory_window
+            )));
         }
 
         if self.workspace.trim().is_empty() {
@@ -1094,6 +1109,25 @@ mod tests {
     fn agent_defaults_validation_rejects_zero_memory_window() {
         let defaults = AgentDefaults {
             memory_window: 0,
+            ..AgentDefaults::default()
+        };
+        assert!(defaults.validate().is_err());
+    }
+
+    #[test]
+    fn agent_defaults_validation_rejects_zero_keep_recent() {
+        let defaults = AgentDefaults {
+            keep_recent: 0,
+            ..AgentDefaults::default()
+        };
+        assert!(defaults.validate().is_err());
+    }
+
+    #[test]
+    fn agent_defaults_validation_rejects_keep_recent_greater_than_memory_window() {
+        let defaults = AgentDefaults {
+            memory_window: 5,
+            keep_recent: 6,
             ..AgentDefaults::default()
         };
         assert!(defaults.validate().is_err());
