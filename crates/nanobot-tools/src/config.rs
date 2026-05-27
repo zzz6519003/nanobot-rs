@@ -172,7 +172,6 @@ mod tests {
             .update_exec_config(ExecToolConfig {
                 timeout: 120,
                 path_append: String::new(),
-                ..Default::default()
             })
             .await;
         let snapshot = config.snapshot().await;

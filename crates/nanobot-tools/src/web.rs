@@ -228,7 +228,7 @@ pub async fn execute_fetch(
     let client = build_client(proxy)?;
 
     let res = client
-        .get(&parsed.to_string())
+        .get(parsed.to_string())
         .header("User-Agent", "Mozilla/5.0")
         .timeout(std::time::Duration::from_secs(30))
         .send()
@@ -290,16 +290,16 @@ pub async fn execute_fetch(
 
 fn build_client(proxy: Option<&str>) -> ToolResult<reqwest::Client> {
     let mut builder = reqwest::Client::builder();
-    if let Some(proxy_url) = proxy {
-        if !proxy_url.trim().is_empty() {
-            let proxy = reqwest::Proxy::all(proxy_url).map_err(|e| {
-                ToolError::execution(
-                    "web",
-                    anyhow::anyhow!("invalid proxy: {}: {}", proxy_url, e),
-                )
-            })?;
-            builder = builder.proxy(proxy);
-        }
+    if let Some(proxy_url) = proxy
+        && !proxy_url.trim().is_empty()
+    {
+        let proxy = reqwest::Proxy::all(proxy_url).map_err(|e| {
+            ToolError::execution(
+                "web",
+                anyhow::anyhow!("invalid proxy: {}: {}", proxy_url, e),
+            )
+        })?;
+        builder = builder.proxy(proxy);
     }
     builder
         .build()

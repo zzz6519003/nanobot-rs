@@ -130,13 +130,13 @@ impl PromptProvider for FilePromptProvider {
 
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) == Some("toml") {
-                if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
-                    match self.load(name).await {
-                        Ok(prompt) => metadata_list.push(prompt.metadata),
-                        Err(e) => {
-                            tracing::warn!("failed to load prompt {}: {}", name, e);
-                        }
+            if path.extension().and_then(|s| s.to_str()) == Some("toml")
+                && let Some(name) = path.file_stem().and_then(|s| s.to_str())
+            {
+                match self.load(name).await {
+                    Ok(prompt) => metadata_list.push(prompt.metadata),
+                    Err(e) => {
+                        tracing::warn!("failed to load prompt {}: {}", name, e);
                     }
                 }
             }

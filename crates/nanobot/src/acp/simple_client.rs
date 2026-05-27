@@ -219,10 +219,10 @@ impl Client for SimpleClient {
 
         let exit_status = {
             let mut child = entry.child.lock().await;
-            match child.try_wait().map_err(Error::into_internal_error)? {
-                Some(status) => Some(to_terminal_exit_status(status)),
-                None => None,
-            }
+            child
+                .try_wait()
+                .map_err(Error::into_internal_error)?
+                .map(to_terminal_exit_status)
         };
 
         Ok(TerminalOutputResponse::new(output, truncated).exit_status(exit_status))

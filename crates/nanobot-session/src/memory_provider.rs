@@ -22,16 +22,22 @@ impl CompositeMemoryProvider {
     }
 }
 
+impl Default for CompositeMemoryProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
 impl MemoryProvider for CompositeMemoryProvider {
     async fn get_context(&self, query: &str, session_key: &str) -> SessionResult<String> {
         let mut contexts = Vec::new();
 
         for provider in &self.providers {
-            if let Ok(ctx) = provider.get_context(query, session_key).await {
-                if !ctx.trim().is_empty() {
-                    contexts.push(ctx);
-                }
+            if let Ok(ctx) = provider.get_context(query, session_key).await
+                && !ctx.trim().is_empty()
+            {
+                contexts.push(ctx);
             }
         }
 

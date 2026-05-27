@@ -135,7 +135,7 @@ fn has_proxy_env_configured() -> bool {
 
 /// Check if a status code indicates a gateway error that should trigger proxy retry.
 fn should_retry_without_proxy_status(status: StatusCode) -> bool {
-    matches!(status.as_u16(), 502 | 503 | 504)
+    (502..=504).contains(&status.as_u16())
 }
 
 #[cfg(test)]

@@ -416,10 +416,10 @@ impl FileWatcher {
         }
 
         // Ensure the event is for the root entry, not a same-named file elsewhere.
-        if let Some(parent) = path.parent() {
-            if parent == self.inner.root {
-                return true;
-            }
+        if let Some(parent) = path.parent()
+            && parent == self.inner.root
+        {
+            return true;
         }
 
         let expected = self.inner.root.join(name);

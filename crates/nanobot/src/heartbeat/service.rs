@@ -210,16 +210,16 @@ impl HeartbeatService {
             return Ok(parsed);
         }
 
-        if let Some(extracted) = Self::extract_json_block(trimmed) {
-            if let Ok(parsed) = serde_json::from_str::<HeartbeatDecisionArgs>(&extracted) {
-                return Ok(parsed);
-            }
+        if let Some(extracted) = Self::extract_json_block(trimmed)
+            && let Ok(parsed) = serde_json::from_str::<HeartbeatDecisionArgs>(&extracted)
+        {
+            return Ok(parsed);
         }
 
-        if let Some(extracted) = Self::extract_json_object(trimmed) {
-            if let Ok(parsed) = serde_json::from_str::<HeartbeatDecisionArgs>(&extracted) {
-                return Ok(parsed);
-            }
+        if let Some(extracted) = Self::extract_json_object(trimmed)
+            && let Ok(parsed) = serde_json::from_str::<HeartbeatDecisionArgs>(&extracted)
+        {
+            return Ok(parsed);
         }
 
         Err(HeartbeatError::response(
@@ -228,9 +228,7 @@ impl HeartbeatService {
     }
 
     fn extract_json_block(content: &str) -> Option<String> {
-        let mut parts = content.split("```");
-        let mut index = 0;
-        while let Some(part) = parts.next() {
+        for (index, part) in content.split("```").enumerate() {
             if index % 2 == 1 {
                 let mut block = part.trim_start();
                 if let Some(stripped) = block.strip_prefix("json") {
@@ -241,7 +239,6 @@ impl HeartbeatService {
                     return Some(block.to_string());
                 }
             }
-            index += 1;
         }
         None
     }

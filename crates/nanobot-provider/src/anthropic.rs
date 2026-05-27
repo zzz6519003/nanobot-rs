@@ -236,13 +236,10 @@ impl LLMProvider for AnthropicProvider {
         let response = self
             .send_request_with_proxy_fallback(&endpoint, &payload)
             .await
-            .map_err(|msg| ProviderError::Other(msg))?;
+            .map_err(ProviderError::Other)?;
 
         let status = response.status();
-        let body_text = response
-            .text()
-            .await
-            .map_err(|e| ProviderError::ApiRequest(e))?;
+        let body_text = response.text().await.map_err(ProviderError::ApiRequest)?;
 
         if !status.is_success() {
             let error_msg = format!(

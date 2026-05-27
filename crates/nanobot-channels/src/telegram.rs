@@ -255,10 +255,10 @@ impl ChannelAdapter for TelegramChannel {
                 .map_err(|err| {
                     ChannelError::adapter("telegram", format!("sendMessage failed: {}", err))
                 })?;
-            if let Ok(payload) = response.json::<TelegramSendMessageResponse>().await {
-                if payload.ok {
-                    last_message_id = Some(payload.result.message_id);
-                }
+            if let Ok(payload) = response.json::<TelegramSendMessageResponse>().await
+                && payload.ok
+            {
+                last_message_id = Some(payload.result.message_id);
             }
         }
         Ok(SendOutcome {

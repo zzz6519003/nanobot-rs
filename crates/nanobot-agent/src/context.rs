@@ -127,10 +127,10 @@ impl ContextBuilder {
         let mut parts = Vec::new();
         for file in &Self::BOOTSTRAP_FILES {
             let path = self.workspace.join(file);
-            if path.is_file() {
-                if let Ok(content) = tokio::fs::read_to_string(&path).await {
-                    parts.push(format!("## {}\n\n{}", file, content));
-                }
+            if path.is_file()
+                && let Ok(content) = tokio::fs::read_to_string(&path).await
+            {
+                parts.push(format!("## {}\n\n{}", file, content));
             }
         }
         parts.join("\n\n")

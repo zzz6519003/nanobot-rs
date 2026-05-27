@@ -43,9 +43,7 @@ impl ProviderError {
     pub fn is_retryable(&self) -> bool {
         match self {
             ProviderError::ApiRequest(e) => {
-                e.is_timeout()
-                    || e.is_connect()
-                    || e.status().map_or(false, |s| s.is_server_error())
+                e.is_timeout() || e.is_connect() || e.status().is_some_and(|s| s.is_server_error())
             }
             ProviderError::Timeout(_) => true,
             ProviderError::RateLimit(_) => true,

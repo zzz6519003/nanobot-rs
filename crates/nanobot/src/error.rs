@@ -76,12 +76,12 @@ pub enum NanobotError {
 impl NanobotError {
     #[allow(unused)]
     pub fn is_retryable(&self) -> bool {
-        match self {
-            Self::Provider(ProviderError::RateLimit(_)) => true,
-            Self::Provider(ProviderError::Timeout(_)) => true,
-            Self::Provider(ProviderError::ApiRequest(_)) => true,
-            Self::Io(_) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Self::Provider(ProviderError::RateLimit(_))
+                | Self::Provider(ProviderError::Timeout(_))
+                | Self::Provider(ProviderError::ApiRequest(_))
+                | Self::Io(_)
+        )
     }
 }

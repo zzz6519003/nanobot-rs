@@ -131,7 +131,7 @@ impl ResponsesStreamState {
         name: Option<&str>,
         output_index: usize,
     ) -> String {
-        let fallback_id = item_id.unwrap_or_else(|| "unknown_call");
+        let fallback_id = item_id.unwrap_or("unknown_call");
         let id = call_id.unwrap_or(fallback_id).to_string();
 
         if let Some(item_id) = item_id {
@@ -230,16 +230,16 @@ impl ResponsesEventExt for ResponsesStreamEvent {
                         event.output_index,
                         true,
                     ));
-                } else if let Some(arguments) = &event.arguments {
-                    if let Some(item_id) = event.item_id.as_deref() {
-                        let id = state.tool_call_id_for(item_id, event.output_index);
-                        events.push(Ok(StreamEvent::tool_call_arguments_delta(
-                            id.clone(),
-                            arguments.clone(),
-                            event.output_index,
-                        )));
-                        events.push(Ok(StreamEvent::tool_call_end(id, event.output_index)));
-                    }
+                } else if let Some(arguments) = &event.arguments
+                    && let Some(item_id) = event.item_id.as_deref()
+                {
+                    let id = state.tool_call_id_for(item_id, event.output_index);
+                    events.push(Ok(StreamEvent::tool_call_arguments_delta(
+                        id.clone(),
+                        arguments.clone(),
+                        event.output_index,
+                    )));
+                    events.push(Ok(StreamEvent::tool_call_end(id, event.output_index)));
                 }
                 events
             }
@@ -250,10 +250,10 @@ impl ResponsesEventExt for ResponsesStreamEvent {
                 tool_call_events_from_item(state, &event.item, event.output_index, true)
             }
             ResponsesStreamEvent::ResponseCompleted(event) => {
-                if let Some(response) = &event.response {
-                    if let Some(update) = usage_update_from_response(response) {
-                        return vec![Ok(update)];
-                    }
+                if let Some(response) = &event.response
+                    && let Some(update) = usage_update_from_response(response)
+                {
+                    return vec![Ok(update)];
                 }
                 Vec::new()
             }
@@ -298,28 +298,28 @@ fn tool_call_events_from_item(
             ..
         } => {
             let mut events = Vec::new();
-            let call_id_str = call_id.as_deref().or_else(|| id.as_deref());
+            let call_id_str = call_id.as_deref().or(id.as_deref());
             let selected_id =
                 state.remember_tool_call(id.as_deref(), call_id_str, name.as_deref(), output_index);
 
-            if let Some(name) = name {
-                if state.mark_tool_call_started(id.as_deref()) {
-                    events.push(Ok(StreamEvent::tool_call_start(
-                        selected_id.clone(),
-                        name.clone(),
-                        output_index,
-                    )));
-                }
+            if let Some(name) = name
+                && state.mark_tool_call_started(id.as_deref())
+            {
+                events.push(Ok(StreamEvent::tool_call_start(
+                    selected_id.clone(),
+                    name.clone(),
+                    output_index,
+                )));
             }
 
-            if let Some(arguments) = arguments {
-                if !arguments.is_empty() {
-                    events.push(Ok(StreamEvent::tool_call_arguments_delta(
-                        selected_id.clone(),
-                        arguments.clone(),
-                        output_index,
-                    )));
-                }
+            if let Some(arguments) = arguments
+                && !arguments.is_empty()
+            {
+                events.push(Ok(StreamEvent::tool_call_arguments_delta(
+                    selected_id.clone(),
+                    arguments.clone(),
+                    output_index,
+                )));
             }
 
             if emit_end {

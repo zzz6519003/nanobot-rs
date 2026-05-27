@@ -200,29 +200,30 @@ async fn dispatch_outbound(
         .unwrap_or(false);
     let stream_id = msg.metadata.stream_id.clone();
 
-    if !is_tool_hint && stream_mode != StreamMode::Append {
-        if let Some(stream_id) = stream_id {
-            let key = format!("{}:{}:{}", msg.channel, msg.chat_id, stream_id);
-            if let Some(message_id) = stream_registry.get(&key).cloned() {
-                if channel.supports_stream_updates() {
-                    if stream_mode == StreamMode::UpdateProgress && !is_progress {
-                        stream_registry.remove(&key);
-                        let _ = channel.send(msg).await?;
-                        return Ok(());
-                    }
-                    channel.update(&message_id, msg).await?;
-                    if !is_progress {
-                        stream_registry.remove(&key);
-                    }
+    if !is_tool_hint
+        && stream_mode != StreamMode::Append
+        && let Some(stream_id) = stream_id
+    {
+        let key = format!("{}:{}:{}", msg.channel, msg.chat_id, stream_id);
+        if let Some(message_id) = stream_registry.get(&key).cloned() {
+            if channel.supports_stream_updates() {
+                if stream_mode == StreamMode::UpdateProgress && !is_progress {
+                    stream_registry.remove(&key);
+                    let _ = channel.send(msg).await?;
                     return Ok(());
                 }
-            } else if is_progress && channel.supports_stream_updates() {
-                let outcome = channel.send(msg).await?;
-                if let Some(sent_id) = outcome.message_id {
-                    stream_registry.insert(key, sent_id);
+                channel.update(&message_id, msg).await?;
+                if !is_progress {
+                    stream_registry.remove(&key);
                 }
                 return Ok(());
             }
+        } else if is_progress && channel.supports_stream_updates() {
+            let outcome = channel.send(msg).await?;
+            if let Some(sent_id) = outcome.message_id {
+                stream_registry.insert(key, sent_id);
+            }
+            return Ok(());
         }
     }
 

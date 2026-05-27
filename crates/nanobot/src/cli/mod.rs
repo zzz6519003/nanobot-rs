@@ -287,7 +287,7 @@ async fn agent(args: AgentArgs) -> NanobotResult<()> {
 async fn status() -> NanobotResult<()> {
     let config_path = get_config_path()?;
     let config = load_config(Some(&config_path))?;
-    let workspace = PathBuf::from(config.workspace_path());
+    let workspace = config.workspace_path();
 
     println!("nanobot Status\n");
     println!(
@@ -617,19 +617,18 @@ impl CronJobHandler for GatewayCronJobHandler {
             .await
             .unwrap_or_else(|e| format!("Error: {}", e));
 
-        if job.payload.deliver {
-            if let Some(chat_id) = job.payload.to.as_deref() {
-                if !response.trim().is_empty() {
-                    let _ = self.bus.publish_outbound(OutboundMessage {
-                        channel: job.payload.channel.unwrap_or_else(|| "cli".to_string()),
-                        chat_id: chat_id.to_string(),
-                        content: response.clone(),
-                        reply_to: None,
-                        media: Vec::new(),
-                        metadata: MessageMetadata::default(),
-                    });
-                }
-            }
+        if job.payload.deliver
+            && let Some(chat_id) = job.payload.to.as_deref()
+            && !response.trim().is_empty()
+        {
+            let _ = self.bus.publish_outbound(OutboundMessage {
+                channel: job.payload.channel.unwrap_or_else(|| "cli".to_string()),
+                chat_id: chat_id.to_string(),
+                content: response.clone(),
+                reply_to: None,
+                media: Vec::new(),
+                metadata: MessageMetadata::default(),
+            });
         }
 
         Ok(Some(response))

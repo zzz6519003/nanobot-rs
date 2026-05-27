@@ -8,6 +8,7 @@ use nanobot_types::provider::ChatMessage;
 
 /// Trait for building context and messages for the agent.
 #[async_trait]
+#[allow(clippy::too_many_arguments)]
 pub trait ContextProvider: Send + Sync {
     /// Builds the message history for the LLM request.
     ///

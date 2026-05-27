@@ -5,7 +5,7 @@ use crate::error::{ConfigError, ConfigResult};
 use serde::{Deserialize, Deserializer, Serialize};
 
 /// Top-level configuration loaded from config files and defaults.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Config {
     /// Agent configuration (defaults, memory, model selection).
@@ -22,19 +22,6 @@ pub struct Config {
     #[serde(skip_serializing_if = "Option::is_none")]
     /// Optional ACP configuration for external agent tools.
     pub acp: Option<crate::acp::ACPConfig>,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            agents: AgentsConfig::default(),
-            channels: ChannelsConfig::default(),
-            providers: ProvidersConfig::default(),
-            gateway: GatewayConfig::default(),
-            tools: ToolsConfig::default(),
-            acp: None,
-        }
-    }
 }
 
 impl Config {
@@ -296,19 +283,11 @@ pub fn normalize_provider_name(raw: &str) -> String {
 }
 
 /// Agent-related configuration (defaults and model settings).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AgentsConfig {
     /// Default agent settings applied to all sessions.
     pub defaults: AgentDefaults,
-}
-
-impl Default for AgentsConfig {
-    fn default() -> Self {
-        Self {
-            defaults: AgentDefaults::default(),
-        }
-    }
 }
 
 /// Default settings applied to all agents unless overridden.
@@ -465,7 +444,7 @@ impl Default for ChannelsConfig {
 }
 
 /// Per-channel settings shared across adapters.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct GenericChannelConfig {
     /// Whether the channel adapter is enabled.
@@ -475,16 +454,6 @@ pub struct GenericChannelConfig {
     #[serde(flatten)]
     /// Adapter-specific extra fields.
     pub extra: HashMap<String, serde_json::Value>,
-}
-
-impl Default for GenericChannelConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            allow_from: Vec::new(),
-            extra: HashMap::new(),
-        }
-    }
 }
 
 /// Protocol type used by a provider endpoint.
@@ -526,7 +495,7 @@ pub enum ProviderWireApi {
 }
 
 /// Provider settings for a single LLM backend.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ProviderConfig {
     /// Optional provider protocol override.
@@ -549,19 +518,6 @@ pub struct ProviderConfig {
 impl ProviderConfig {
     pub fn has_auth(&self) -> bool {
         !self.api_key.trim().is_empty()
-    }
-}
-
-impl Default for ProviderConfig {
-    fn default() -> Self {
-        Self {
-            provider_type: None,
-            wire_api: None,
-            model: None,
-            api_key: String::new(),
-            api_base: None,
-            extra_headers: None,
-        }
     }
 }
 
@@ -696,7 +652,7 @@ impl HeartbeatConfig {
 }
 
 /// Configuration for tool subsystems (web, exec, MCP).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ToolsConfig {
     /// Web tool configuration.
@@ -707,17 +663,6 @@ pub struct ToolsConfig {
     pub restrict_to_workspace: bool,
     /// MCP server configurations.
     pub mcp_servers: HashMap<String, MCPServerConfig>,
-}
-
-impl Default for ToolsConfig {
-    fn default() -> Self {
-        Self {
-            web: WebToolsConfig::default(),
-            exec: ExecToolConfig::default(),
-            restrict_to_workspace: false,
-            mcp_servers: HashMap::new(),
-        }
-    }
 }
 
 impl ToolsConfig {
@@ -739,22 +684,13 @@ impl ToolsConfig {
 }
 
 /// Web tool configuration including proxy and search settings.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct WebToolsConfig {
     /// Optional HTTP proxy URL.
     pub proxy: Option<String>,
     /// Web search configuration.
     pub search: WebSearchConfig,
-}
-
-impl Default for WebToolsConfig {
-    fn default() -> Self {
-        Self {
-            proxy: None,
-            search: WebSearchConfig::default(),
-        }
-    }
 }
 
 impl WebToolsConfig {
@@ -1117,96 +1053,127 @@ mod tests {
 
     #[test]
     fn agent_defaults_validation_rejects_invalid_max_tokens() {
-        let mut defaults = AgentDefaults::default();
-        defaults.max_tokens = 0;
+        let defaults = AgentDefaults {
+            max_tokens: 0,
+            ..AgentDefaults::default()
+        };
         assert!(defaults.validate().is_err());
 
-        defaults.max_tokens = -100;
+        let defaults = AgentDefaults {
+            max_tokens: -100,
+            ..AgentDefaults::default()
+        };
         assert!(defaults.validate().is_err());
     }
 
     #[test]
     fn agent_defaults_validation_rejects_invalid_temperature() {
-        let mut defaults = AgentDefaults::default();
-        defaults.temperature = -0.1;
+        let defaults = AgentDefaults {
+            temperature: -0.1,
+            ..AgentDefaults::default()
+        };
         assert!(defaults.validate().is_err());
 
-        defaults.temperature = 2.1;
+        let defaults = AgentDefaults {
+            temperature: 2.1,
+            ..AgentDefaults::default()
+        };
         assert!(defaults.validate().is_err());
     }
 
     #[test]
     fn agent_defaults_validation_rejects_zero_iterations() {
-        let mut defaults = AgentDefaults::default();
-        defaults.max_tool_iterations = 0;
+        let defaults = AgentDefaults {
+            max_tool_iterations: 0,
+            ..AgentDefaults::default()
+        };
         assert!(defaults.validate().is_err());
     }
 
     #[test]
     fn agent_defaults_validation_rejects_zero_memory_window() {
-        let mut defaults = AgentDefaults::default();
-        defaults.memory_window = 0;
+        let defaults = AgentDefaults {
+            memory_window: 0,
+            ..AgentDefaults::default()
+        };
         assert!(defaults.validate().is_err());
     }
 
     #[test]
     fn agent_defaults_validation_rejects_empty_workspace() {
-        let mut defaults = AgentDefaults::default();
-        defaults.workspace = "".to_string();
+        let defaults = AgentDefaults {
+            workspace: "".to_string(),
+            ..AgentDefaults::default()
+        };
         assert!(defaults.validate().is_err());
 
-        defaults.workspace = "   ".to_string();
+        let defaults = AgentDefaults {
+            workspace: "   ".to_string(),
+            ..AgentDefaults::default()
+        };
         assert!(defaults.validate().is_err());
     }
 
     #[test]
     fn agent_defaults_validation_rejects_empty_model() {
-        let mut defaults = AgentDefaults::default();
-        defaults.model = "".to_string();
+        let defaults = AgentDefaults {
+            model: "".to_string(),
+            ..AgentDefaults::default()
+        };
         assert!(defaults.validate().is_err());
     }
 
     #[test]
     fn gateway_validation_allows_zero_port_when_endpoint_unused() {
-        let mut gateway = GatewayConfig::default();
-        gateway.port = 0;
+        let gateway = GatewayConfig {
+            port: 0,
+            ..GatewayConfig::default()
+        };
         assert!(gateway.validate().is_ok());
     }
 
     #[test]
     fn gateway_validation_allows_empty_host_when_endpoint_unused() {
-        let mut gateway = GatewayConfig::default();
-        gateway.host = "".to_string();
+        let gateway = GatewayConfig {
+            host: "".to_string(),
+            ..GatewayConfig::default()
+        };
         assert!(gateway.validate().is_ok());
     }
 
     #[test]
     fn heartbeat_validation_rejects_zero_interval_when_enabled() {
-        let mut heartbeat = HeartbeatConfig::default();
-        heartbeat.enabled = true;
-        heartbeat.interval_s = 0;
+        let heartbeat = HeartbeatConfig {
+            enabled: true,
+            interval_s: 0,
+        };
         assert!(heartbeat.validate().is_err());
     }
 
     #[test]
     fn heartbeat_validation_allows_zero_interval_when_disabled() {
-        let mut heartbeat = HeartbeatConfig::default();
-        heartbeat.enabled = false;
-        heartbeat.interval_s = 0;
+        let heartbeat = HeartbeatConfig {
+            enabled: false,
+            interval_s: 0,
+        };
         assert!(heartbeat.validate().is_ok());
     }
 
     #[test]
     fn web_search_validation_rejects_zero_max_results() {
-        let mut search = WebSearchConfig::default();
-        search.max_results = 0;
+        let search = WebSearchConfig {
+            max_results: 0,
+            ..WebSearchConfig::default()
+        };
         assert!(search.validate().is_err());
     }
 
     #[test]
     fn exec_tool_validation_rejects_zero_timeout() {
-        let mut exec = ExecToolConfig::default();
-        exec.timeout = 0;
+        let exec = ExecToolConfig {
+            timeout: 0,
+            ..ExecToolConfig::default()
+        };
         assert!(exec.validate().is_err());
     }
 
@@ -1218,23 +1185,29 @@ mod tests {
 
     #[test]
     fn mcp_server_validation_accepts_command_only() {
-        let mut server = MCPServerConfig::default();
-        server.command = "node".to_string();
+        let server = MCPServerConfig {
+            command: "node".to_string(),
+            ..MCPServerConfig::default()
+        };
         assert!(server.validate().is_ok());
     }
 
     #[test]
     fn mcp_server_validation_accepts_url_only() {
-        let mut server = MCPServerConfig::default();
-        server.url = "http://localhost:3000".to_string();
+        let server = MCPServerConfig {
+            url: "http://localhost:3000".to_string(),
+            ..MCPServerConfig::default()
+        };
         assert!(server.validate().is_ok());
     }
 
     #[test]
     fn mcp_server_validation_rejects_zero_tool_timeout() {
-        let mut server = MCPServerConfig::default();
-        server.command = "node".to_string();
-        server.tool_timeout = 0;
+        let server = MCPServerConfig {
+            command: "node".to_string(),
+            tool_timeout: 0,
+            ..MCPServerConfig::default()
+        };
         assert!(server.validate().is_err());
     }
 

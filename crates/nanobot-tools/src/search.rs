@@ -161,17 +161,17 @@ impl Tool for SearchFilesTool {
         let args: SearchFilesArgs = parse_args(args_json)?;
         let snapshot = self.config.snapshot().await;
 
-        search_with_ripgrep(
-            &args.query,
-            args.path.as_deref(),
-            args.file_pattern.as_deref(),
-            None,
-            args.case_sensitive,
-            args.regex,
-            args.limit,
-            args.context_lines,
-            snapshot.workspace.as_path(),
-        )
+        search_with_ripgrep(RipgrepSearchParams {
+            query: &args.query,
+            path: args.path.as_deref(),
+            file_pattern: args.file_pattern.as_deref(),
+            language: None,
+            case_sensitive: args.case_sensitive,
+            regex: args.regex,
+            limit: args.limit,
+            context_lines: args.context_lines,
+            workspace: snapshot.workspace.as_path(),
+        })
         .await
     }
 }
@@ -240,36 +240,38 @@ impl Tool for GrepCodeTool {
         let args: GrepCodeArgs = parse_args(args_json)?;
         let snapshot = self.config.snapshot().await;
 
-        search_with_ripgrep(
-            &args.query,
-            args.path.as_deref(),
-            None,
-            args.language.as_deref(),
-            args.case_sensitive,
-            false, // grep_code uses literal search by default
-            args.limit,
-            args.context_lines,
-            snapshot.workspace.as_path(),
-        )
+        search_with_ripgrep(RipgrepSearchParams {
+            query: &args.query,
+            path: args.path.as_deref(),
+            file_pattern: None,
+            language: args.language.as_deref(),
+            case_sensitive: args.case_sensitive,
+            regex: false, // grep_code uses literal search by default
+            limit: args.limit,
+            context_lines: args.context_lines,
+            workspace: snapshot.workspace.as_path(),
+        })
         .await
     }
 }
 
-async fn search_with_ripgrep(
-    query: &str,
-    path: Option<&str>,
-    file_pattern: Option<&str>,
-    language: Option<&str>,
+struct RipgrepSearchParams<'a> {
+    query: &'a str,
+    path: Option<&'a str>,
+    file_pattern: Option<&'a str>,
+    language: Option<&'a str>,
     case_sensitive: bool,
     regex: bool,
     limit: usize,
     context_lines: usize,
-    workspace: &Path,
-) -> ToolResult<String> {
-    let search_path = if let Some(p) = path {
-        workspace.join(p)
+    workspace: &'a Path,
+}
+
+async fn search_with_ripgrep(params: RipgrepSearchParams<'_>) -> ToolResult<String> {
+    let search_path = if let Some(p) = params.path {
+        params.workspace.join(p)
     } else {
-        workspace.to_path_buf()
+        params.workspace.to_path_buf()
     };
 
     if !search_path.exists() {
@@ -284,32 +286,32 @@ async fn search_with_ripgrep(
     // Basic flags
     cmd.arg("--json")
         .arg("--max-count")
-        .arg(limit.to_string())
+        .arg(params.limit.to_string())
         .arg("--context")
-        .arg(context_lines.to_string());
+        .arg(params.context_lines.to_string());
 
     // Case sensitivity
-    if !case_sensitive {
+    if !params.case_sensitive {
         cmd.arg("--ignore-case");
     }
 
     // Regex vs literal
-    if !regex {
+    if !params.regex {
         cmd.arg("--fixed-strings");
     }
 
     // File pattern
-    if let Some(pattern) = file_pattern {
+    if let Some(pattern) = params.file_pattern {
         cmd.arg("--glob").arg(pattern);
     }
 
     // Language filter
-    if let Some(lang) = language {
+    if let Some(lang) = params.language {
         cmd.arg("--type").arg(lang);
     }
 
     // Query and path
-    cmd.arg(query).arg(&search_path);
+    cmd.arg(params.query).arg(&search_path);
 
     // Execute
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -397,10 +399,10 @@ async fn search_with_ripgrep(
         ));
     }
 
-    let results = parse_ripgrep_json(&stdout_data, limit)?;
+    let results = parse_ripgrep_json(&stdout_data, params.limit)?;
     let response = SearchResponse {
         total: results.len(),
-        truncated: results.len() >= limit,
+        truncated: results.len() >= params.limit,
         results,
     };
 

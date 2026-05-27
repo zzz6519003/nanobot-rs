@@ -57,14 +57,14 @@ impl AgentLoop {
     const CLEANUP_INTERVAL: Duration = Duration::from_secs(300);
 
     async fn ensure_mcp_connected(&self) {
-        if let Some(mcp) = &self.mcp {
-            if let Err(err) = mcp.connect_if_needed(&self.tools).await {
-                error!(
-                    target: TARGET,
-                    "failed to connect MCP servers (will retry on next message): {}",
-                    err
-                );
-            }
+        if let Some(mcp) = &self.mcp
+            && let Err(err) = mcp.connect_if_needed(&self.tools).await
+        {
+            error!(
+                target: TARGET,
+                "failed to connect MCP servers (will retry on next message): {}",
+                err
+            );
         }
     }
 
@@ -202,16 +202,16 @@ impl AgentLoop {
             .as_ref()
             .map(|m| m.message.content.clone())
             .unwrap_or_default();
-        if self.send_usage_summary {
-            if let Some(usage_text) = out.as_ref().and_then(|o| o.usage.as_ref()).map(|u| {
+        if self.send_usage_summary
+            && let Some(usage_text) = out.as_ref().and_then(|o| o.usage.as_ref()).map(|u| {
                 format!(
                     "\n\n---\n_Tokens: {} in / {} out_",
                     u.prompt_tokens.unwrap_or(0),
                     u.completion_tokens.unwrap_or(0)
                 )
-            }) {
-                content.push_str(&usage_text);
-            }
+            })
+        {
+            content.push_str(&usage_text);
         }
         debug!(
             target: TARGET,
@@ -228,7 +228,7 @@ impl AgentLoop {
     async fn register_task(&self, session_key: &SessionKey, task_id: TaskId, handle: AbortHandle) {
         self.active_tasks
             .entry(session_key.clone())
-            .or_insert_with(DashMap::new)
+            .or_default()
             .insert(task_id, handle);
     }
 
@@ -303,23 +303,23 @@ impl AgentLoop {
                 if let Err(err) = self.bus.publish_outbound(out.message.clone()) {
                     error!(target: TARGET, error = %err, "failed to publish outbound message");
                 }
-                if self.send_usage_summary {
-                    if let Some(usage) = out.usage {
-                        let usage_msg = OutboundMessage {
-                            channel: out.message.channel.clone(),
-                            chat_id: out.message.chat_id.clone(),
-                            content: format!(
-                                "_Tokens: {} in / {} out_",
-                                usage.prompt_tokens.unwrap_or(0),
-                                usage.completion_tokens.unwrap_or(0)
-                            ),
-                            reply_to: None,
-                            media: Vec::new(),
-                            metadata: MessageMetadata::default(),
-                        };
-                        if let Err(err) = self.bus.publish_outbound(usage_msg) {
-                            error!(target: TARGET, session_key = %session_key, error = %err, "failed to publish usage summary");
-                        }
+                if self.send_usage_summary
+                    && let Some(usage) = out.usage
+                {
+                    let usage_msg = OutboundMessage {
+                        channel: out.message.channel.clone(),
+                        chat_id: out.message.chat_id.clone(),
+                        content: format!(
+                            "**Tokens: {} in / {} out**",
+                            usage.prompt_tokens.unwrap_or(0),
+                            usage.completion_tokens.unwrap_or(0)
+                        ),
+                        reply_to: None,
+                        media: Vec::new(),
+                        metadata: MessageMetadata::default(),
+                    };
+                    if let Err(err) = self.bus.publish_outbound(usage_msg) {
+                        error!(target: TARGET, session_key = %session_key, error = %err, "failed to publish usage summary");
                     }
                 }
             }
@@ -409,7 +409,7 @@ impl AgentLoop {
             message_id: msg.metadata.message_id.clone(),
         };
 
-        let _ = self.tools.start_turn().await?;
+        self.tools.start_turn().await?;
 
         let history = self
             .sessions

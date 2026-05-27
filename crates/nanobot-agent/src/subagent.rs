@@ -52,6 +52,7 @@ pub struct SubagentManager {
 }
 
 impl SubagentManager {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         provider: Arc<dyn LLMProvider>,
         workspace: std::path::PathBuf,
@@ -116,7 +117,7 @@ impl SubagentManagerInner {
         if let Some(session) = session_key {
             self.session_tasks
                 .entry(session)
-                .or_insert_with(DashMap::new)
+                .or_default()
                 .insert(task_id, ());
         }
 
@@ -141,11 +142,11 @@ impl SubagentManagerInner {
 
         let mut cancelled = 0usize;
         for id in ids {
-            if let Some((_, handle)) = self.running_tasks.remove(&id) {
-                if !handle.is_finished() {
-                    handle.abort();
-                    cancelled += 1;
-                }
+            if let Some((_, handle)) = self.running_tasks.remove(&id)
+                && !handle.is_finished()
+            {
+                handle.abort();
+                cancelled += 1;
             }
         }
         cancelled
@@ -153,13 +154,13 @@ impl SubagentManagerInner {
 
     async fn cleanup_task(&self, task_id: &TaskId, session_key: Option<&SessionKey>) {
         self.running_tasks.remove(task_id);
-        if let Some(session_key) = session_key {
-            if let Some(tasks) = self.session_tasks.get(session_key) {
-                tasks.remove(task_id);
-                if tasks.is_empty() {
-                    drop(tasks);
-                    self.session_tasks.remove(session_key);
-                }
+        if let Some(session_key) = session_key
+            && let Some(tasks) = self.session_tasks.get(session_key)
+        {
+            tasks.remove(task_id);
+            if tasks.is_empty() {
+                drop(tasks);
+                self.session_tasks.remove(session_key);
             }
         }
     }
@@ -258,9 +259,7 @@ fn truncate(text: &str, max: usize) -> String {
 }
 
 fn strip_think(text: Option<&str>) -> Option<String> {
-    let Some(t) = text else {
-        return None;
-    };
+    let t = text?;
     let re = Regex::new(r"<think>[\s\S]*?</think>").ok()?;
     let cleaned = re.replace_all(t, "").trim().to_string();
     if cleaned.is_empty() {
@@ -270,6 +269,7 @@ fn strip_think(text: Option<&str>) -> Option<String> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_subagent_loop_impl(
     task: &str,
     tool_context: &ToolContext,
@@ -364,6 +364,7 @@ async fn run_subagent_loop_impl(
         .unwrap_or_else(|| "Task completed but no final response was generated.".to_string()))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn announce_result_impl(
     _task_id: &str,
     label: &str,

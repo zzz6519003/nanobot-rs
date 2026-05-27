@@ -121,7 +121,7 @@ impl Session {
         sliced
             .into_iter()
             .map(|m| ChatMessage {
-                role: m.role.clone(),
+                role: m.role,
                 content: m.content.clone(),
                 tool_calls: m.tool_calls.clone(),
                 tool_call_id: m.tool_call_id.clone(),

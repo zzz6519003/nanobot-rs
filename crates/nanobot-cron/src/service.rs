@@ -228,11 +228,11 @@ impl CronService {
         let mut last_status = "ok".to_string();
         let mut last_error: Option<String> = None;
 
-        if let Some(handler) = handler {
-            if let Err(err) = handler.on_job(job_snapshot.clone()).await {
-                last_status = "error".to_string();
-                last_error = Some(err.to_string());
-            }
+        if let Some(handler) = handler
+            && let Err(err) = handler.on_job(job_snapshot.clone()).await
+        {
+            last_status = "error".to_string();
+            last_error = Some(err.to_string());
         }
 
         let mut store = self.write_store().await;

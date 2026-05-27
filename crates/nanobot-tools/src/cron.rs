@@ -280,10 +280,10 @@ fn parse_at_to_ms(input: &str) -> ToolResult<i64> {
     }
 
     for fmt in ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"] {
-        if let Ok(naive) = NaiveDateTime::parse_from_str(input, fmt) {
-            if let Some(local_dt) = Local.from_local_datetime(&naive).single() {
-                return Ok(local_dt.timestamp_millis());
-            }
+        if let Ok(naive) = NaiveDateTime::parse_from_str(input, fmt)
+            && let Some(local_dt) = Local.from_local_datetime(&naive).single()
+        {
+            return Ok(local_dt.timestamp_millis());
         }
     }
 

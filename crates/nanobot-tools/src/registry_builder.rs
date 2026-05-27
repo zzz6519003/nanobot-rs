@@ -138,8 +138,10 @@ mod tests {
     #[test]
     fn builder_accepts_custom_config() {
         let workspace = std::env::temp_dir().join("test-registry-builder-custom");
-        let mut exec_config = ExecToolConfig::default();
-        exec_config.timeout = 120;
+        let exec_config = ExecToolConfig {
+            timeout: 120,
+            ..ExecToolConfig::default()
+        };
 
         let registry = ToolRegistryBuilder::new(workspace)
             .with_restrict_to_workspace(true)

@@ -176,14 +176,14 @@ impl JsonlSessionStore {
                 continue;
             }
 
-            if let Ok(meta) = serde_json::from_str::<SessionMetadataLine>(&line) {
-                if meta.line_type == "metadata" {
-                    created_at = meta.created_at;
-                    updated_at = meta.updated_at;
-                    metadata = meta.metadata;
-                    last_consolidated = meta.last_consolidated;
-                    continue;
-                }
+            if let Ok(meta) = serde_json::from_str::<SessionMetadataLine>(&line)
+                && meta.line_type == "metadata"
+            {
+                created_at = meta.created_at;
+                updated_at = meta.updated_at;
+                metadata = meta.metadata;
+                last_consolidated = meta.last_consolidated;
+                continue;
             }
 
             if let Ok(msg) = serde_json::from_str::<SessionEntry>(&line) {

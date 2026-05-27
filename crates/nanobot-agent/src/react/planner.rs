@@ -101,18 +101,17 @@ impl Planner {
                     arguments_json,
                     index,
                 } => {
-                    if let Some(progress) = progress {
-                        if let Some(hint) = tool_hint_state.update_args(id, arguments_json, *index)
-                        {
-                            progress.send_tool_hint(&hint);
-                        }
+                    if let Some(progress) = progress
+                        && let Some(hint) = tool_hint_state.update_args(id, arguments_json, *index)
+                    {
+                        progress.send_tool_hint(&hint);
                     }
                 }
                 StreamEvent::ToolCallEnd { id, index } => {
-                    if let Some(progress) = progress {
-                        if let Some(hint) = tool_hint_state.finish_call(id, *index) {
-                            progress.send_tool_hint(&hint);
-                        }
+                    if let Some(progress) = progress
+                        && let Some(hint) = tool_hint_state.finish_call(id, *index)
+                    {
+                        progress.send_tool_hint(&hint);
                     }
                 }
                 _ => {}
@@ -120,13 +119,12 @@ impl Planner {
 
             accumulator.process_event(&event);
 
-            if let Some(progress) = progress {
-                if let Some(content) = progress_state.apply_event(&event) {
-                    if progress_throttle.should_send(content.len()) {
-                        progress.send_progress(&content);
-                        progress_throttle.mark_sent(content.len());
-                    }
-                }
+            if let Some(progress) = progress
+                && let Some(content) = progress_state.apply_event(&event)
+                && progress_throttle.should_send(content.len())
+            {
+                progress.send_progress(&content);
+                progress_throttle.mark_sent(content.len());
             }
         }
 

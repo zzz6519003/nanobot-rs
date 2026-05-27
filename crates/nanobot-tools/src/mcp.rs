@@ -50,7 +50,7 @@ enum ConnectionStatus {
 
 impl ConnectionStatus {
     fn is_disconnect(self) -> bool {
-        return self == ConnectionStatus::Disconnect;
+        self == ConnectionStatus::Disconnect
     }
 }
 

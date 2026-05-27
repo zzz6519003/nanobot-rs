@@ -188,14 +188,14 @@ impl AnthropicEventExt for AnthropicStreamEvent {
                     vec![Ok(StreamEvent::text_delta(text.clone(), *index))]
                 }
                 AnthropicStreamContentDelta::InputJsonDelta { partial_json } => {
-                    if let Some(state) = parser.content_blocks.get(index) {
-                        if let Some(id) = &state.tool_call_id {
-                            return vec![Ok(StreamEvent::tool_call_arguments_delta(
-                                id.clone(),
-                                partial_json.clone(),
-                                *index,
-                            ))];
-                        }
+                    if let Some(state) = parser.content_blocks.get(index)
+                        && let Some(id) = &state.tool_call_id
+                    {
+                        return vec![Ok(StreamEvent::tool_call_arguments_delta(
+                            id.clone(),
+                            partial_json.clone(),
+                            *index,
+                        ))];
                     }
                     Vec::new()
                 }
@@ -206,23 +206,23 @@ impl AnthropicEventExt for AnthropicStreamEvent {
                 AnthropicStreamContentDelta::Unknown => Vec::new(),
             },
             AnthropicStreamEvent::ContentBlockStop { index } => {
-                if let Some(state) = parser.content_blocks.get(index) {
-                    if let Some(id) = &state.tool_call_id {
-                        return vec![Ok(StreamEvent::tool_call_end(id.clone(), *index))];
-                    }
+                if let Some(state) = parser.content_blocks.get(index)
+                    && let Some(id) = &state.tool_call_id
+                {
+                    return vec![Ok(StreamEvent::tool_call_end(id.clone(), *index))];
                 }
                 Vec::new()
             }
             AnthropicStreamEvent::MessageDelta { delta, usage } => {
-                if let Some(delta) = delta {
-                    if let Some(reason) = delta.stop_reason.as_deref() {
-                        return vec![Ok(StreamEvent::finish_reason_update(reason))];
-                    }
+                if let Some(delta) = delta
+                    && let Some(reason) = delta.stop_reason.as_deref()
+                {
+                    return vec![Ok(StreamEvent::finish_reason_update(reason))];
                 }
-                if let Some(usage) = usage {
-                    if let Some(tokens) = usage.output_tokens {
-                        return vec![Ok(StreamEvent::usage_update(None, Some(tokens), None))];
-                    }
+                if let Some(usage) = usage
+                    && let Some(tokens) = usage.output_tokens
+                {
+                    return vec![Ok(StreamEvent::usage_update(None, Some(tokens), None))];
                 }
                 Vec::new()
             }

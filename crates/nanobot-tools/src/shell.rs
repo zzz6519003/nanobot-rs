@@ -282,21 +282,21 @@ fn guard_command(
         // Best-effort scan for absolute paths referenced in the shell string.
         for abs in extract_absolute_paths(command) {
             let p = std::path::PathBuf::from(abs);
-            if p.is_absolute() {
-                if let Ok(resolved) = p.canonicalize() {
-                    let base = if let Some(allowed_dir) = allowed_dir {
-                        allowed_dir
-                    } else {
-                        &cwd
-                    };
-                    if resolved != base && !resolved.starts_with(base) {
-                        return Err(ToolError::execution(
-                            "exec",
-                            anyhow::anyhow!(
-                                "command blocked by safety guard (path outside working dir)"
-                            ),
-                        ));
-                    }
+            if p.is_absolute()
+                && let Ok(resolved) = p.canonicalize()
+            {
+                let base = if let Some(allowed_dir) = allowed_dir {
+                    allowed_dir
+                } else {
+                    &cwd
+                };
+                if resolved != base && !resolved.starts_with(base) {
+                    return Err(ToolError::execution(
+                        "exec",
+                        anyhow::anyhow!(
+                            "command blocked by safety guard (path outside working dir)"
+                        ),
+                    ));
                 }
             }
         }

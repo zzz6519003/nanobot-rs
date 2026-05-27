@@ -86,16 +86,15 @@ impl SessionManager {
         // Try consolidation if configured
         if self.auto_consolidation
             && let Some(strategy) = &self.consolidation
+            && strategy.should_consolidate(session).await
         {
-            if strategy.should_consolidate(session).await {
-                let messages_before = session.messages.len();
-                if strategy.consolidate(session).await? {
-                    let messages_after = session.messages.len();
-                    let consolidated = messages_before.saturating_sub(messages_after);
+            let messages_before = session.messages.len();
+            if strategy.consolidate(session).await? {
+                let messages_after = session.messages.len();
+                let consolidated = messages_before.saturating_sub(messages_after);
 
-                    for hook in &self.hooks {
-                        hook.on_consolidate(session, consolidated).await?;
-                    }
+                for hook in &self.hooks {
+                    hook.on_consolidate(session, consolidated).await?;
                 }
             }
         }
@@ -157,10 +156,10 @@ impl SessionManager {
         let mut contexts = Vec::new();
 
         for provider in &self.memory_providers {
-            if let Ok(ctx) = provider.get_context(query, session_key).await {
-                if !ctx.trim().is_empty() {
-                    contexts.push(ctx);
-                }
+            if let Ok(ctx) = provider.get_context(query, session_key).await
+                && !ctx.trim().is_empty()
+            {
+                contexts.push(ctx);
             }
         }
 

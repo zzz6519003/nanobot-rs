@@ -67,10 +67,10 @@ impl OpenAICompatProvider {
             }
 
             let mut resolved = model.to_string();
-            if spec.strip_model_prefix {
-                if let Some((_, tail)) = resolved.split_once('/') {
-                    resolved = tail.to_string();
-                }
+            if spec.strip_model_prefix
+                && let Some((_, tail)) = resolved.split_once('/')
+            {
+                resolved = tail.to_string();
             }
 
             let canonical =
@@ -145,19 +145,18 @@ impl OpenAICompatProvider {
         messages
             .into_iter()
             .map(|mut message| {
-                if let Some(MessageContent::Text(text)) = &message.content {
-                    if text.is_empty() {
-                        if matches!(message.role, MessageRole::Assistant)
-                            && message
-                                .tool_calls
-                                .as_ref()
-                                .map(|calls| !calls.is_empty())
-                                .unwrap_or(false)
-                        {
-                            message.content = None;
-                        } else {
-                            message.content = Some(MessageContent::Text("(empty)".to_string()));
-                        }
+                if let Some(MessageContent::Text(text)) = &message.content
+                    && text.is_empty()
+                {
+                    if matches!(message.role, MessageRole::Assistant)
+                        && message
+                            .tool_calls
+                            .as_ref()
+                            .is_some_and(|calls| !calls.is_empty())
+                    {
+                        message.content = None;
+                    } else {
+                        message.content = Some(MessageContent::Text("(empty)".to_string()));
                     }
                 }
                 message
@@ -473,10 +472,10 @@ impl LLMProvider for OpenAICompatProvider {
 }
 
 fn canonicalize_explicit_prefix(model: &str, spec_name: &str, canonical_prefix: &str) -> String {
-    if let Some((prefix, tail)) = model.split_once('/') {
-        if prefix.replace('-', "_") == spec_name {
-            return format!("{}/{}", canonical_prefix, tail);
-        }
+    if let Some((prefix, tail)) = model.split_once('/')
+        && prefix.replace('-', "_") == spec_name
+    {
+        return format!("{}/{}", canonical_prefix, tail);
     }
     model.to_string()
 }

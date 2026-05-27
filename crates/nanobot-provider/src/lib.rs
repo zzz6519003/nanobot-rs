@@ -44,21 +44,21 @@ pub fn make_provider(config: &Config) -> ProviderResult<Arc<dyn LLMProvider>> {
     }
 
     // Check if fallback providers are configured
-    if let Some(fallback_names) = &config.agents.defaults.fallback_providers {
-        if !fallback_names.is_empty() {
-            let mut providers = Vec::new();
+    if let Some(fallback_names) = &config.agents.defaults.fallback_providers
+        && !fallback_names.is_empty()
+    {
+        let mut providers = Vec::new();
 
-            // Add primary provider
-            providers.push(create_single_provider(config, &provider_name)?);
+        // Add primary provider
+        providers.push(create_single_provider(config, &provider_name)?);
 
-            // Add fallback providers
-            for fallback_name in fallback_names {
-                let fallback_provider = create_single_provider(config, fallback_name)?;
-                providers.push(fallback_provider);
-            }
-
-            return Ok(Arc::new(FallbackProvider::new(providers, model)));
+        // Add fallback providers
+        for fallback_name in fallback_names {
+            let fallback_provider = create_single_provider(config, fallback_name)?;
+            providers.push(fallback_provider);
         }
+
+        return Ok(Arc::new(FallbackProvider::new(providers, model)));
     }
 
     // No fallback configured, return single provider
