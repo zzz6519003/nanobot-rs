@@ -1,6 +1,6 @@
 # 快速开始
 
-本文面向“想把 `nanobot-rs` 跑起来并开始使用”的用户。
+本文面向“想把 `nanobot` 跑起来并开始使用”的用户。
 
 ## 前置条件
 
@@ -14,11 +14,11 @@
 
 ```bash
 git clone <your-repo-url>
-cd nanobot-rs
+cd nanobot
 cargo build --release
 ```
 
-二进制位于 `target/release/nanobot-rs`。
+二进制位于 `target/release/nanobot`。
 
 开发阶段也可以直接使用：
 
@@ -31,7 +31,7 @@ cargo run -- <subcommand>
 首次运行建议先执行：
 
 ```bash
-nanobot-rs onboard
+nanobot onboard
 ```
 
 它会完成两件事：
@@ -84,7 +84,7 @@ nanobot-rs onboard
 }
 ```
 
-### Custom（Responses-compatible）
+### Custom（OpenAI-compatible）
 
 ```json
 {
@@ -96,6 +96,7 @@ nanobot-rs onboard
   },
   "providers": {
     "custom": {
+      "wireApi": "responses",
       "apiBase": "https://your-endpoint.example.com/v1",
       "apiKey": "token"
     }
@@ -103,22 +104,32 @@ nanobot-rs onboard
 }
 ```
 
-`custom` provider 现在要求目标服务兼容 **OpenAI Responses API**，不再兼容旧的 `chat/completions` 接口。
+如果你的网关只支持旧接口，可改成：
+
+```json
+{
+  "providers": {
+    "custom": {
+      "wireApi": "chat_completions"
+    }
+  }
+}
+```
 
 ## Provider 支持说明
 
 | Provider | 用途 | 说明 |
 |---|---|---|
 | `anthropic` | 主 LLM provider | 使用原生 `Messages API` |
-| `openai` | 主 LLM provider | 使用原生 `Responses API` |
-| `custom` | 主 LLM provider | 要求兼容 `Responses API` |
+| `openai` | 主 LLM provider | 默认使用 `Responses API`，可用 `wireApi` 切到 `chat/completions` |
+| `custom` | 主 LLM provider | 默认使用 `Responses API`，可用 `wireApi` 切到 `chat/completions` |
 | `github_copilot` | 辅助命令 / ACP | 不作为主 LLM provider 注入 AgentLoop |
 
 GitHub Copilot 当前支持：
 
 ```bash
-nanobot-rs provider login github_copilot
-nanobot-rs provider status github_copilot
+nanobot provider login github_copilot
+nanobot provider status github_copilot
 ```
 
 如果要把 Copilot / Claude / Codex 当作外部 coding agent 使用，请通过 ACP 配置接入，而不是把它们设置成主 provider。
@@ -128,47 +139,48 @@ nanobot-rs provider status github_copilot
 ### 单轮执行
 
 ```bash
-nanobot-rs agent -m "总结一下当前目录结构"
+nanobot agent -m "总结一下当前目录结构"
 ```
 
 ### 交互模式
 
 ```bash
-nanobot-rs agent
+nanobot agent
 ```
 
 ### 指定会话
 
 ```bash
-nanobot-rs agent -s cli:project-a -m "继续上次任务"
+nanobot agent -s cli:project-a -m "继续上次任务"
 ```
 
 ### 查看状态
 
 ```bash
-nanobot-rs status
+nanobot status
 ```
 
 ### 启动 Gateway
 
 ```bash
-nanobot-rs gateway
+nanobot gateway
 ```
 
 ## 内建工具
 
-当前内建工具包括：
+当前运行时默认可用工具包括：
 
 - 文件系统：`read_file` `write_file` `edit_file` `list_dir`
 - Shell：`exec`
 - Web：`web_search` `web_fetch`
+- 代码检索：`search_files` `grep_code`
 - 消息：`message`
-- 可选：`spawn` `cron`
+- 任务：`spawn` `cron`
 
 此外还支持：
 
 - `MCP`：通过 `tools.mcpServers` 接入
-- `ACP`：通过外部 coding agent 执行复杂任务
+- `ACP`：配置 `acp` 后会注入 `acp_execute` 工具，用于外部 coding agent 执行复杂任务
 
 ## 渠道支持
 
@@ -216,7 +228,10 @@ Telegram 额外字段（可选）：
 
 ### 1. 为什么自定义 provider 返回 404？
 
-请确认你的服务支持 **`/responses`**，而不是只支持旧的 `chat/completions`。
+请检查 `providers.<name>.wireApi` 是否与网关匹配：
+
+- `responses` -> `.../responses`
+- `chat_completions` -> `.../chat/completions`
 
 ### 2. 为什么设置了 `github_copilot` 作为主 provider 后无法启动？
 

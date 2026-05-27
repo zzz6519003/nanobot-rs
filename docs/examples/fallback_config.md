@@ -21,6 +21,7 @@ This example demonstrates how to configure multiple LLM providers with automatic
       "apiKey": "${ANTHROPIC_API_KEY}"
     },
     "openai": {
+      "wireApi": "responses",
       "apiKey": "${OPENAI_API_KEY}"
     }
   }
@@ -43,9 +44,11 @@ This example demonstrates how to configure multiple LLM providers with automatic
       "apiKey": "${ANTHROPIC_API_KEY}"
     },
     "openai": {
+      "wireApi": "responses",
       "apiKey": "${OPENAI_API_KEY}"
     },
     "custom": {
+      "wireApi": "chat_completions",
       "apiKey": "${CUSTOM_API_KEY}",
       "apiBase": "https://api.example.com/v1"
     }

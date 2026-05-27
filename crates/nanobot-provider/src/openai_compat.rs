@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
+use futures::stream;
+use nanobot_config::schema::ProviderWireApi;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
 use tracing::debug;
 use uuid::Uuid;
@@ -15,7 +17,7 @@ use crate::openai_types::{
 };
 use crate::proxy::ProxyFallbackHelper;
 use crate::registry::find_spec;
-use crate::streaming::{OpenAiAdapter, StreamAdapter, StreamError, StreamResponse};
+use crate::streaming::{OpenAiAdapter, StreamAdapter, StreamError, StreamEvent, StreamResponse};
 use crate::{
     ChatMessage, ChatRequest, LLMProvider, LLMResponse, MessageContent, MessageRole,
     ToolCallRequest, UsageStats,
@@ -27,6 +29,7 @@ pub struct OpenAICompatProvider {
     api_base: Option<String>,
     default_model: String,
     provider_name: String,
+    wire_api: ProviderWireApi,
     extra_headers: HashMap<String, String>,
     proxy_helper: ProxyFallbackHelper,
 }
@@ -37,6 +40,7 @@ impl OpenAICompatProvider {
         api_base: Option<String>,
         default_model: String,
         provider_name: String,
+        wire_api: ProviderWireApi,
         extra_headers: HashMap<String, String>,
     ) -> Self {
         Self {
@@ -44,6 +48,7 @@ impl OpenAICompatProvider {
             api_base,
             default_model,
             provider_name,
+            wire_api,
             extra_headers,
             proxy_helper: ProxyFallbackHelper::new(),
         }
@@ -84,7 +89,7 @@ impl OpenAICompatProvider {
         }
     }
 
-    fn endpoint(&self) -> String {
+    fn responses_endpoint(&self) -> String {
         let base = self
             .api_base
             .clone()
@@ -98,6 +103,20 @@ impl OpenAICompatProvider {
         }
 
         format!("{}/responses", trimmed)
+    }
+
+    fn chat_completions_endpoint(&self) -> String {
+        let base = self
+            .api_base
+            .clone()
+            .unwrap_or_else(|| "https://api.openai.com/v1".to_string());
+
+        let trimmed = base.trim_end_matches('/');
+        if trimmed.ends_with("/chat/completions") {
+            return trimmed.to_string();
+        }
+
+        format!("{}/chat/completions", trimmed)
     }
 
     fn headers(&self) -> HeaderMap {
@@ -254,17 +273,113 @@ impl OpenAICompatProvider {
             stream: None,
         }
     }
+
+    fn build_chat_completions_payload(
+        &self,
+        model: String,
+        req: ChatRequest,
+        stream: bool,
+    ) -> serde_json::Value {
+        let messages = chat_completions_messages_from_chat_messages(Self::sanitize_messages(req.messages));
+        let tools = req.tools.map(|tools| {
+            tools
+                .into_iter()
+                .map(|tool| {
+                    serde_json::json!({
+                        "type": "function",
+                        "function": {
+                            "name": tool.function.name,
+                            "description": tool.function.description,
+                            "parameters": tool.function.parameters,
+                        }
+                    })
+                })
+                .collect::<Vec<_>>()
+        });
+
+        let mut payload = serde_json::json!({
+            "model": model,
+            "messages": messages,
+            "temperature": req.temperature,
+            "max_tokens": req.max_tokens.max(1),
+            "stream": stream,
+        });
+
+        if let Some(tools) = tools {
+            payload["tools"] = serde_json::Value::Array(tools);
+            payload["tool_choice"] = serde_json::Value::String("auto".to_string());
+        }
+
+        payload
+    }
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ChatCompletionsResponse {
+    choices: Vec<ChatCompletionsChoice>,
+    #[serde(default)]
+    usage: Option<ChatCompletionsUsage>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ChatCompletionsChoice {
+    message: ChatCompletionsMessage,
+    #[serde(default)]
+    finish_reason: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ChatCompletionsMessage {
+    #[serde(default)]
+    content: Option<String>,
+    #[serde(default)]
+    tool_calls: Option<Vec<ChatCompletionsToolCall>>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ChatCompletionsToolCall {
+    id: String,
+    function: ChatCompletionsFunctionCall,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ChatCompletionsFunctionCall {
+    name: String,
+    arguments: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ChatCompletionsUsage {
+    #[serde(default)]
+    prompt_tokens: Option<u64>,
+    #[serde(default)]
+    completion_tokens: Option<u64>,
+    #[serde(default)]
+    total_tokens: Option<u64>,
 }
 
 #[async_trait]
 impl LLMProvider for OpenAICompatProvider {
     async fn chat(&self, req: ChatRequest) -> ProviderResult<LLMResponse> {
         let model = self.resolve_model(req.model.as_deref().unwrap_or(&self.default_model));
-        let endpoint = self.endpoint();
-        let payload =
-            serde_json::to_value(self.build_responses_payload(model, req)).map_err(|e| {
-                ProviderError::InvalidConfig(format!("Error serializing LLM request: {}", e))
-            })?;
+        let (endpoint, payload) = match self.wire_api {
+            ProviderWireApi::Responses => {
+                let endpoint = self.responses_endpoint();
+                let payload = serde_json::to_value(self.build_responses_payload(model, req))
+                    .map_err(|e| {
+                        ProviderError::InvalidConfig(format!(
+                            "Error serializing LLM request: {}",
+                            e
+                        ))
+                    })?;
+                (endpoint, payload)
+            }
+            ProviderWireApi::ChatCompletions => {
+                let endpoint = self.chat_completions_endpoint();
+                let payload = self.build_chat_completions_payload(model, req, false);
+                (endpoint, payload)
+            }
+        };
 
         let response = self
             .send_request_with_proxy_fallback(&endpoint, &payload)
@@ -294,19 +409,33 @@ impl LLMProvider for OpenAICompatProvider {
             });
         }
 
-        let parsed = serde_json::from_str::<OpenAIResponsesResponse>(&body_text).map_err(|e| {
-            ProviderError::InvalidResponse(format!("Error parsing LLM response: {}", e))
-        })?;
-
-        Ok(parse_responses_response(parsed))
+        match self.wire_api {
+            ProviderWireApi::Responses => {
+                let parsed = serde_json::from_str::<OpenAIResponsesResponse>(&body_text).map_err(
+                    |e| ProviderError::InvalidResponse(format!("Error parsing LLM response: {}", e)),
+                )?;
+                Ok(parse_responses_response(parsed))
+            }
+            ProviderWireApi::ChatCompletions => {
+                let parsed = serde_json::from_str::<ChatCompletionsResponse>(&body_text).map_err(
+                    |e| ProviderError::InvalidResponse(format!("Error parsing LLM response: {}", e)),
+                )?;
+                Ok(parse_chat_completions_response(parsed))
+            }
+        }
     }
 
     async fn chat_stream(&self, req: ChatRequest) -> Result<StreamResponse, StreamError> {
-        let model = self.resolve_model(req.model.as_deref().unwrap_or(&self.default_model));
-        let endpoint = self.endpoint();
-        let mut payload = self.build_responses_payload(model, req);
+        if self.wire_api == ProviderWireApi::ChatCompletions {
+            let response = self.chat(req).await.map_err(StreamError::from)?;
+            return Ok(Box::pin(stream::once(async move {
+                Ok(StreamEvent::done(response))
+            })));
+        }
 
-        // Enable streaming
+        let model = self.resolve_model(req.model.as_deref().unwrap_or(&self.default_model));
+        let endpoint = self.responses_endpoint();
+        let mut payload = self.build_responses_payload(model, req);
         payload.stream = Some(true);
 
         let payload_value = serde_json::to_value(payload)
@@ -316,20 +445,14 @@ impl LLMProvider for OpenAICompatProvider {
             .send_request_with_proxy_fallback(&endpoint, &payload_value)
             .await
             .map_err(StreamError::Network)?;
-
         let status = response.status();
         if !status.is_success() {
             let body_text = response
                 .text()
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(StreamError::Provider(format!(
-                "HTTP {}: {}",
-                status.as_u16(),
-                body_text
-            )));
+            return Err(StreamError::Provider(format!("HTTP {}: {}", status.as_u16(), body_text)));
         }
-
         // Use OpenAI adapter to convert response to StreamEvent stream
         let adapter = OpenAiAdapter;
         adapter.adapt_stream(response).await
@@ -444,6 +567,111 @@ fn map_responses_usage(usage: Option<ResponsesUsage>) -> UsageStats {
         },
         None => UsageStats::default(),
     }
+}
+
+fn parse_chat_completions_response(resp: ChatCompletionsResponse) -> LLMResponse {
+    let Some(choice) = resp.choices.into_iter().next() else {
+        return LLMResponse {
+            content: None,
+            tool_calls: Vec::new(),
+            finish_reason: "stop".to_string(),
+            usage: UsageStats::default(),
+            reasoning_content: None,
+            thinking_blocks: None,
+        };
+    };
+
+    let tool_calls = choice
+        .message
+        .tool_calls
+        .unwrap_or_default()
+        .into_iter()
+        .map(|call| ToolCallRequest {
+            id: call.id,
+            name: call.function.name.into(),
+            arguments_json: call.function.arguments,
+        })
+        .collect::<Vec<_>>();
+
+    let usage = match resp.usage {
+        Some(usage) => UsageStats {
+            prompt_tokens: usage.prompt_tokens,
+            completion_tokens: usage.completion_tokens,
+            total_tokens: usage.total_tokens,
+        },
+        None => UsageStats::default(),
+    };
+
+    LLMResponse {
+        content: choice.message.content.filter(|text| !text.trim().is_empty()),
+        tool_calls,
+        finish_reason: choice.finish_reason.unwrap_or_else(|| "stop".to_string()),
+        usage,
+        reasoning_content: None,
+        thinking_blocks: None,
+    }
+}
+
+fn chat_completions_messages_from_chat_messages(
+    messages: Vec<ChatMessage>,
+) -> Vec<serde_json::Value> {
+    let mut out = Vec::new();
+    for message in messages {
+        match message.role {
+            MessageRole::Tool => {
+                let mut item = serde_json::json!({
+                    "role": "tool",
+                    "content": message_content_text(message.content.as_ref()).unwrap_or_default(),
+                });
+                if let Some(call_id) = message.tool_call_id {
+                    item["tool_call_id"] = serde_json::Value::String(call_id);
+                }
+                out.push(item);
+            }
+            MessageRole::Assistant => {
+                let mut item = serde_json::json!({
+                    "role": "assistant",
+                });
+                if let Some(content) = message_content_text(message.content.as_ref())
+                    && !content.trim().is_empty()
+                {
+                    item["content"] = serde_json::Value::String(content);
+                } else {
+                    item["content"] = serde_json::Value::String(String::new());
+                }
+
+                if let Some(tool_calls) = message.tool_calls
+                    && !tool_calls.is_empty()
+                {
+                    item["tool_calls"] = serde_json::Value::Array(
+                        tool_calls
+                            .into_iter()
+                            .map(|tool_call| {
+                                serde_json::json!({
+                                    "id": tool_call.id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": tool_call.function.name,
+                                        "arguments": tool_call.function.arguments,
+                                    }
+                                })
+                            })
+                            .collect(),
+                    );
+                }
+                out.push(item);
+            }
+            _ => {
+                if let Some(content) = message_content_text(message.content.as_ref()) {
+                    out.push(serde_json::json!({
+                        "role": role_to_responses_role(&message.role),
+                        "content": content,
+                    }));
+                }
+            }
+        }
+    }
+    out
 }
 
 fn responses_input_from_messages(messages: Vec<ChatMessage>) -> Vec<ResponseInputItem> {
@@ -567,6 +795,7 @@ mod tests {
             Some("https://example.com/v1".to_string()),
             "openai/gpt-4o-mini".to_string(),
             provider_name.to_string(),
+            ProviderWireApi::Responses,
             HashMap::new(),
         )
     }
@@ -607,6 +836,7 @@ mod tests {
             None,
             "openai/gpt-4o-mini".to_string(),
             "openrouter".to_string(),
+            ProviderWireApi::Responses,
             extra,
         );
 
@@ -759,9 +989,13 @@ mod tests {
             Some("https://api.example.com/v1".to_string()),
             "gpt-4".to_string(),
             "custom".to_string(),
+            ProviderWireApi::Responses,
             HashMap::new(),
         );
-        assert_eq!(provider.endpoint(), "https://api.example.com/v1/responses");
+        assert_eq!(
+            provider.responses_endpoint(),
+            "https://api.example.com/v1/responses"
+        );
     }
 
     #[test]
@@ -771,9 +1005,13 @@ mod tests {
             Some("https://api.openai.com/v1".to_string()),
             "gpt-4".to_string(),
             "openai".to_string(),
+            ProviderWireApi::Responses,
             HashMap::new(),
         );
-        assert_eq!(provider.endpoint(), "https://api.openai.com/v1/responses");
+        assert_eq!(
+            provider.responses_endpoint(),
+            "https://api.openai.com/v1/responses"
+        );
     }
 
     #[test]
@@ -783,10 +1021,11 @@ mod tests {
             Some("https://gmn.chuangzuoli.com/v1".to_string()),
             "gpt-4".to_string(),
             "openai".to_string(),
+            ProviderWireApi::Responses,
             HashMap::new(),
         );
         assert_eq!(
-            provider.endpoint(),
+            provider.responses_endpoint(),
             "https://gmn.chuangzuoli.com/v1/responses"
         );
     }
@@ -798,9 +1037,13 @@ mod tests {
             None,
             "gpt-4".to_string(),
             "openai".to_string(),
+            ProviderWireApi::Responses,
             HashMap::new(),
         );
-        assert_eq!(provider.endpoint(), "https://api.openai.com/v1/responses");
+        assert_eq!(
+            provider.responses_endpoint(),
+            "https://api.openai.com/v1/responses"
+        );
     }
 
     #[test]
@@ -810,9 +1053,13 @@ mod tests {
             Some("https://api.openai.com/v1/responses".to_string()),
             "gpt-4".to_string(),
             "openai".to_string(),
+            ProviderWireApi::Responses,
             HashMap::new(),
         );
-        assert_eq!(provider.endpoint(), "https://api.openai.com/v1/responses");
+        assert_eq!(
+            provider.responses_endpoint(),
+            "https://api.openai.com/v1/responses"
+        );
     }
 
     #[test]
@@ -822,9 +1069,13 @@ mod tests {
             Some("https://api.example.com/v1/".to_string()),
             "gpt-4".to_string(),
             "custom".to_string(),
+            ProviderWireApi::Responses,
             HashMap::new(),
         );
-        assert_eq!(provider.endpoint(), "https://api.example.com/v1/responses");
+        assert_eq!(
+            provider.responses_endpoint(),
+            "https://api.example.com/v1/responses"
+        );
     }
 
     #[test]
@@ -834,8 +1085,12 @@ mod tests {
             None,
             "gpt-4".to_string(),
             "custom".to_string(),
+            ProviderWireApi::Responses,
             HashMap::new(),
         );
-        assert_eq!(provider.endpoint(), "https://api.openai.com/v1/responses");
+        assert_eq!(
+            provider.responses_endpoint(),
+            "https://api.openai.com/v1/responses"
+        );
     }
 }

@@ -14,11 +14,12 @@ use crate::traits::{Agent, ContextProvider};
 use crate::react::{
     ExecutionContext, LoopOutcome, ModelConfig, ProgressEmitter, ReActExecutor,
 };
-use crate::error::AgentResult;
+use crate::error::{AgentError, AgentResult};
 use nanobot_bus::{
     InboundCommand, InboundMessage, MessageBus, MessageId, MessageMetadata, OutboundMessage,
 };
 use nanobot_provider::LLMProvider;
+use crate::react::LoopExitReason;
 use nanobot_session::{ConsolidationOutcome, Session, SessionEntry, SessionManager};
 use nanobot_tools::mcp::MCPManager;
 use nanobot_tools::{ToolContext, ToolRegistry};
@@ -276,6 +277,7 @@ impl AgentLoop {
 
     async fn dispatch(&self, msg: InboundMessage) {
         let session_key = msg.session_key();
+        // 同一 session 串行执行，避免并发回合同时改写会话状态导致上下文错乱。
         let lock = self
             .session_locks
             .entry(session_key.clone())
@@ -418,6 +420,7 @@ impl AgentLoop {
             )
             .await;
 
+        // 新一轮输入插入在“历史尾部”，保存时从这里开始截取新增消息，避免重复落盘旧历史。
         let start_index = messages.len() - 1 - history_len;
 
         let reply_to = msg
@@ -444,9 +447,16 @@ impl AgentLoop {
             .run_agent_loop(messages, &tool_context, &session_key, Some(progress))
             .await?;
 
+        if outcome.exit_reason == LoopExitReason::ProviderError {
+            return Err(AgentError::loop_error(
+                "provider request failed; check provider config/network and retry",
+            ));
+        }
+
         self.save_turn(&mut session, outcome.messages, start_index);
         self.sessions.save(&mut session).await?;
 
+        // 如果本轮已经显式调用 message 工具发消息，则跳过默认最终回复，避免重复发送。
         if self.tools.message_sent_in_turn().await {
             return Ok(None);
         }
@@ -595,6 +605,7 @@ impl AgentLoop {
             }
 
             const MAX_TOOL_RESULT_CHARS: usize = 8000;
+            // 工具返回可能很长，写入会话前截断，防止会话文件膨胀导致后续上下文加载变慢。
             let content = msg.content.map(|c| match c {
                 MessageContent::Text(t) => {
                     if msg.role == MessageRole::Tool && t.len() > MAX_TOOL_RESULT_CHARS {
@@ -698,8 +709,6 @@ impl Agent for AgentLoop {
         AgentLoop::close_provider(self).await;
     }
 }
-
-
 
 
 

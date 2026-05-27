@@ -1,10 +1,10 @@
-# nanobot-rs 架构设计
+# nanobot 架构设计
 
 本文描述 **当前实现** 的稳定结构，而不是历史重构过程。
 
 ## 目标
 
-`nanobot-rs` 的目标是提供一个本地优先的 Agent 运行时，支持：
+`nanobot` 的目标是提供一个本地优先的 Agent 运行时，支持：
 
 - CLI 直接使用
 - Gateway 长驻运行
@@ -94,7 +94,7 @@ AgentLoop
 4. 将观察结果追加到消息历史
 5. 继续下一轮，直到完成、取消或达到最大迭代次数
 
-ReAct 相关模块拆分在 `src/agent/react/`：
+ReAct 相关模块拆分在 `crates/nanobot-agent/src/react/`：
 
 - `planner`：负责向模型发起规划请求
 - `tool_runner`：执行工具并构造 observation
@@ -115,44 +115,41 @@ ReAct 相关模块拆分在 `src/agent/react/`：
 
 ### 2. OpenAI
 
-- 原生使用 `Responses API`
-- 端点语义：`/v1/responses`
-- 用于 OpenAI 官方与兼容 Responses 协议的服务
+- 使用 `OpenAICompatProvider`
+- 默认端点语义：`/v1/responses`
+- 可通过 provider 配置 `wireApi=chat_completions` 切到 `/v1/chat/completions`
 
 ### 3. Custom
 
 - 复用 `OpenAICompatProvider`
-- 要求目标服务兼容 `Responses API`
-- 不再兼容旧的 `chat/completions` 路径
+- 默认走 `Responses API`
+- 可通过 `wireApi` 显式切换到 `chat/completions`
 
 ### 4. GitHub Copilot
 
 - 不作为主 LLM provider 注入 AgentLoop
 - 当前仅支持：
-  - `nanobot-rs provider login github_copilot`
-  - `nanobot-rs provider status github_copilot`
+  - `nanobot provider login github_copilot`
+  - `nanobot provider status github_copilot`
 - 若要在执行流中调用外部 coding agent，应通过 ACP 工具接入
 
 ## 工具系统
 
 内建工具分为两类：
 
-### 核心工具
+### 内建工具
 
 - 文件系统：`read_file` `write_file` `edit_file` `list_dir`
 - Shell：`exec`
 - Web：`web_search` `web_fetch`
+- 代码检索：`search_files` `grep_code`
 - 消息：`message`
+- 任务：`spawn` `cron`
 
-### 可选工具
-
-- `spawn`：创建子代理任务
-- `cron`：管理定时任务
-
-此外还支持两类外部扩展：
+此外还支持两类外部扩展与动态工具：
 
 - **MCP**：通过 `tools.mcpServers` 注册远程或本地 MCP server
-- **ACP**：通过 ACP agent 执行外部 coding 任务
+- **ACP**：配置后注入动态工具 `acp_execute`，用于外部 coding agent 执行任务
 
 工具注册统一由 `ToolRegistryBuilder` 构建，运行期通过 `ToolRegistry` 执行。
 

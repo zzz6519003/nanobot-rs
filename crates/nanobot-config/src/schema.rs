@@ -60,7 +60,8 @@ impl Config {
 
 fn expand_tilde(raw: &str) -> Result<PathBuf, String> {
     if let Some(rest) = raw.strip_prefix("~/") {
-        let home = dirs::home_dir().ok_or_else(|| "failed to resolve home directory".to_string())?;
+        let home =
+            dirs::home_dir().ok_or_else(|| "failed to resolve home directory".to_string())?;
         Ok(home.join(rest))
     } else {
         Ok(PathBuf::from(raw))
@@ -100,9 +101,8 @@ impl Config {
     ///
     /// This method implements the provider selection logic:
     /// 1. If `agents.defaults.provider` is set and not "auto", use it
-    /// 2. If model has a provider prefix (e.g., "openai/gpt-4"), use that provider
-    /// 3. If model contains provider keywords (e.g., "claude" → "anthropic"), use that provider
-    /// 4. Fall back to the first configured provider with an API key
+    /// 2. If model has a provider prefix (e.g., "openai/gpt-4"), and it exists in config, use it
+    /// 3. Fall back to the first configured non-OAuth provider with an API key
     ///
     /// # Arguments
     ///
@@ -110,7 +110,7 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// Returns the provider name (e.g., "anthropic", "openai"), or None if no provider is configured.
+    /// Returns the provider name (e.g., "anthropic", "openai", "my_provider"), or None if no provider is configured.
     ///
     /// # Example
     ///
@@ -118,7 +118,9 @@ impl Config {
     /// use nanobot_config::schema::{Config, ProviderConfig};
     ///
     /// let mut config = Config::default();
-    /// config.providers.anthropic.api_key = "sk-xxx".to_string();
+    /// if let Some(provider) = config.providers.get_mut("anthropic") {
+    ///     provider.api_key = "sk-xxx".to_string();
+    /// }
     ///
     /// let provider = config.get_provider_name(Some("claude-3-opus"));
     /// assert_eq!(provider.as_deref(), Some("anthropic"));
@@ -130,38 +132,26 @@ impl Config {
         }
 
         let target_model = model.unwrap_or(&self.agents.defaults.model).to_lowercase();
-        let normalized = target_model.replace('-', "_");
-        if let Some((prefix, _)) = target_model.split_once('/')
-            && let Some(spec) = provider_spec(prefix)
-        {
-            return Some(spec.name.to_string());
-        }
-
-        for spec in PROVIDER_SPECS {
-            let hit = spec
-                .keywords
-                .iter()
-                .any(|kw| target_model.contains(kw) || normalized.contains(&kw.replace('-', "_")));
-            if hit
-                && (self
-                    .provider_config(spec.name)
-                    .map(|p| p.has_auth())
-                    .unwrap_or(false)
-                    || spec.oauth)
-            {
-                return Some(spec.name.to_string());
+        if let Some((prefix, _)) = target_model.split_once('/') {
+            let normalized_prefix = normalize_provider_name(prefix);
+            if self.providers.get(&normalized_prefix).is_some() {
+                return Some(normalized_prefix);
             }
         }
 
-        PROVIDER_SPECS
+        let mut candidates = self
+            .providers
             .iter()
-            .filter(|s| !s.oauth)
-            .find(|s| {
-                self.provider_config(s.name)
-                    .map(|p| p.has_auth())
-                    .unwrap_or(false)
+            .filter_map(|(name, cfg)| {
+                if cfg.has_auth() && self.provider_type(name) != ProviderType::OAuth {
+                    Some(name.clone())
+                } else {
+                    None
+                }
             })
-            .map(|s| s.name.to_string())
+            .collect::<Vec<_>>();
+        candidates.sort();
+        candidates.into_iter().next()
     }
 
     /// Returns the provider configuration for the specified model.
@@ -180,10 +170,28 @@ impl Config {
         self.provider_config(&name).cloned()
     }
 
+    /// Resolves the model for a given provider.
+    ///
+    /// Prefers `providers.<name>.model` when configured, otherwise falls back to
+    /// `agents.defaults.model`.
+    pub fn model_for_provider(&self, name: &str) -> String {
+        self.provider_config(name)
+            .and_then(|cfg| cfg.model.as_ref())
+            .map(|model| model.trim())
+            .filter(|model| !model.is_empty())
+            .map(ToString::to_string)
+            .unwrap_or_else(|| self.agents.defaults.model.clone())
+    }
+
+    /// Resolves the runtime model using the currently selected provider.
+    pub fn active_model(&self) -> Option<String> {
+        let provider = self.get_provider_name(None)?;
+        Some(self.model_for_provider(&provider))
+    }
+
     /// Returns the API base URL for the specified model's provider.
     ///
-    /// If the provider has a custom `api_base` configured, returns that.
-    /// Otherwise, returns the provider's default API base when one is defined.
+    /// Returns configured `api_base` when it is set and non-empty.
     ///
     /// # Arguments
     ///
@@ -195,15 +203,11 @@ impl Config {
     pub fn get_api_base(&self, model: Option<&str>) -> Option<String> {
         let name = self.get_provider_name(model)?;
         let provider = self.provider_config(&name)?;
-        if let Some(base) = &provider.api_base {
-            if !base.trim().is_empty() {
-                return Some(base.clone());
-            }
-        }
-
-        provider_spec(&name)
-            .and_then(|spec| spec.default_api_base)
-            .map(str::to_string)
+        provider
+            .api_base
+            .as_ref()
+            .filter(|base| !base.trim().is_empty())
+            .cloned()
     }
 
     /// Returns the provider configuration for the specified provider name.
@@ -218,9 +222,35 @@ impl Config {
     ///
     /// # Supported Providers
     ///
-    /// - custom, anthropic, openai, github_copilot
+    /// - Any configured provider key in `providers`
     pub fn provider_config(&self, name: &str) -> Option<&ProviderConfig> {
         self.providers.get(name)
+    }
+
+    /// Resolves provider protocol type from explicit config.
+    ///
+    /// Defaults to `OpenAiCompatible` when `provider_type` is not configured.
+    pub fn provider_type(&self, name: &str) -> ProviderType {
+        let normalized = normalize_provider_name(name);
+        if let Some(cfg) = self.providers.get(&normalized)
+            && let Some(kind) = cfg.provider_type
+        {
+            return kind;
+        }
+        ProviderType::OpenAiCompatible
+    }
+
+    /// Resolves wire API type for OpenAI-compatible providers.
+    ///
+    /// Defaults to `Responses` when `wire_api` is not configured.
+    pub fn wire_api(&self, name: &str) -> ProviderWireApi {
+        let normalized = normalize_provider_name(name);
+        if let Some(cfg) = self.providers.get(&normalized)
+            && let Some(kind) = cfg.wire_api
+        {
+            return kind;
+        }
+        ProviderWireApi::Responses
     }
 }
 
@@ -234,41 +264,36 @@ pub fn normalize_provider_name(raw: &str) -> String {
         return "auto".to_string();
     }
 
-    let collapsed = collapse_provider_name(trimmed);
-    if let Some(spec) = PROVIDER_SPECS
-        .iter()
-        .find(|spec| spec.matches_collapsed(&collapsed))
-    {
-        return spec.name.to_string();
+    let mut out = String::with_capacity(trimmed.len());
+    let mut prev_is_sep = false;
+    for ch in trimmed.chars() {
+        match ch {
+            '-' | ' ' => {
+                if !out.is_empty() && !prev_is_sep {
+                    out.push('_');
+                }
+                prev_is_sep = true;
+            }
+            c if c.is_ascii_uppercase() => {
+                if !out.is_empty() && !prev_is_sep {
+                    out.push('_');
+                }
+                out.push(c.to_ascii_lowercase());
+                prev_is_sep = false;
+            }
+            c if c.is_ascii_alphanumeric() || c == '_' => {
+                out.push(c.to_ascii_lowercase());
+                prev_is_sep = c == '_';
+            }
+            _ => {
+                if !out.is_empty() && !prev_is_sep {
+                    out.push('_');
+                }
+                prev_is_sep = true;
+            }
+        }
     }
-
-    trimmed.to_lowercase().replace('-', "_")
-}
-
-fn collapse_provider_name(raw: &str) -> String {
-    raw.chars()
-        .filter(|ch| ch.is_ascii_alphanumeric())
-        .flat_map(|ch| ch.to_lowercase())
-        .collect()
-}
-
-#[derive(Debug, Clone, Copy)]
-struct ProviderSpec {
-    name: &'static str,
-    aliases: &'static [&'static str],
-    keywords: &'static [&'static str],
-    oauth: bool,
-    default_api_base: Option<&'static str>,
-}
-
-impl ProviderSpec {
-    fn matches_collapsed(&self, candidate: &str) -> bool {
-        collapse_provider_name(self.name) == candidate
-            || self
-                .aliases
-                .iter()
-                .any(|alias| collapse_provider_name(alias) == candidate)
-    }
+    out.trim_matches('_').to_string()
 }
 
 /// Agent-related configuration (defaults and model settings).
@@ -463,18 +488,63 @@ impl Default for GenericChannelConfig {
     }
 }
 
+/// Protocol type used by a provider endpoint.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum ProviderType {
+    /// OpenAI-compatible API (Responses API style).
+    #[default]
+    #[serde(
+        rename = "open_ai_compatible",
+        alias = "openai",
+        alias = "open_ai",
+        alias = "open_ai_compatible",
+        alias = "openai_compatible"
+    )]
+    OpenAiCompatible,
+    /// Anthropic Messages API.
+    #[serde(rename = "anthropic")]
+    Anthropic,
+    /// OAuth-only provider (not used as main LLM provider).
+    #[serde(rename = "oauth", alias = "o_auth")]
+    OAuth,
+}
+
+/// Wire protocol variant for OpenAI-compatible providers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum ProviderWireApi {
+    /// OpenAI Responses API (`/responses`).
+    #[default]
+    #[serde(rename = "responses")]
+    Responses,
+    /// Legacy OpenAI Chat Completions API (`/chat/completions`).
+    #[serde(
+        rename = "chat_completions",
+        alias = "chat_completion",
+        alias = "chat",
+        alias = "completions"
+    )]
+    ChatCompletions,
+}
+
 /// Provider settings for a single LLM backend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ProviderConfig {
+    /// Optional provider protocol override.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_type: Option<ProviderType>,
+    /// Optional wire API override for OpenAI-compatible providers.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wire_api: Option<ProviderWireApi>,
+    /// Optional default model for this provider.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
     /// API key for the provider.
     pub api_key: String,
     /// Optional API base URL override.
     pub api_base: Option<String>,
     /// Optional extra headers for API requests.
     pub extra_headers: Option<HashMap<String, String>>,
-    /// Optional GitHub instruction header for Copilot.
-    pub github_instruction: Option<String>,
 }
 
 impl ProviderConfig {
@@ -486,58 +556,62 @@ impl ProviderConfig {
 impl Default for ProviderConfig {
     fn default() -> Self {
         Self {
+            provider_type: None,
+            wire_api: None,
+            model: None,
             api_key: String::new(),
             api_base: None,
             extra_headers: None,
-            github_instruction: None,
         }
     }
 }
 
 /// Collection of all configured providers.
 #[derive(Debug, Clone, Serialize)]
-#[serde(default, rename_all = "camelCase")]
-pub struct ProvidersConfig {
-    /// Custom provider configuration.
-    pub custom: ProviderConfig,
-    /// Anthropic provider configuration.
-    pub anthropic: ProviderConfig,
-    /// OpenAI provider configuration.
-    pub openai: ProviderConfig,
-    /// GitHub Copilot provider configuration.
-    pub github_copilot: ProviderConfig,
-}
+#[serde(transparent)]
+pub struct ProvidersConfig(pub HashMap<String, ProviderConfig>);
 
 impl Default for ProvidersConfig {
     fn default() -> Self {
-        Self {
-            custom: ProviderConfig::default(),
-            anthropic: ProviderConfig::default(),
-            openai: ProviderConfig::default(),
-            github_copilot: ProviderConfig::default(),
-        }
+        let mut providers = HashMap::new();
+        providers.insert("custom".to_string(), ProviderConfig::default());
+        providers.insert(
+            "anthropic".to_string(),
+            ProviderConfig {
+                provider_type: Some(ProviderType::Anthropic),
+                ..ProviderConfig::default()
+            },
+        );
+        providers.insert("openai".to_string(), ProviderConfig::default());
+        providers.insert(
+            "github_copilot".to_string(),
+            ProviderConfig {
+                provider_type: Some(ProviderType::OAuth),
+                ..ProviderConfig::default()
+            },
+        );
+        Self(providers)
     }
 }
 
 impl ProvidersConfig {
-    fn get(&self, name: &str) -> Option<&ProviderConfig> {
-        match normalize_provider_name(name).as_str() {
-            "custom" => Some(&self.custom),
-            "anthropic" => Some(&self.anthropic),
-            "openai" => Some(&self.openai),
-            "github_copilot" => Some(&self.github_copilot),
-            _ => None,
-        }
+    pub fn get(&self, name: &str) -> Option<&ProviderConfig> {
+        let normalized = normalize_provider_name(name);
+        self.0.get(&normalized)
     }
 
-    fn get_mut(&mut self, name: &str) -> Option<&mut ProviderConfig> {
-        match normalize_provider_name(name).as_str() {
-            "custom" => Some(&mut self.custom),
-            "anthropic" => Some(&mut self.anthropic),
-            "openai" => Some(&mut self.openai),
-            "github_copilot" => Some(&mut self.github_copilot),
-            _ => None,
-        }
+    pub fn get_mut(&mut self, name: &str) -> Option<&mut ProviderConfig> {
+        let normalized = normalize_provider_name(name);
+        self.0.get_mut(&normalized)
+    }
+
+    pub fn insert(&mut self, name: impl Into<String>, config: ProviderConfig) {
+        let normalized = normalize_provider_name(&name.into());
+        self.0.insert(normalized, config);
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &ProviderConfig)> {
+        self.0.iter()
     }
 }
 
@@ -550,55 +624,11 @@ impl<'de> Deserialize<'de> for ProvidersConfig {
         let mut providers = Self::default();
 
         for (key, value) in raw {
-            if let Some(slot) = providers.get_mut(&key) {
-                *slot = value;
-            }
+            providers.insert(key, value);
         }
 
         Ok(providers)
     }
-}
-
-const PROVIDER_SPECS: &[ProviderSpec] = &[
-    ProviderSpec {
-        name: "custom",
-        aliases: &[],
-        keywords: &[],
-        oauth: false,
-        default_api_base: None,
-    },
-    ProviderSpec {
-        name: "anthropic",
-        aliases: &[],
-        keywords: &["anthropic", "claude"],
-        oauth: false,
-        default_api_base: Some("https://api.anthropic.com/v1"),
-    },
-    ProviderSpec {
-        name: "openai",
-        aliases: &[],
-        keywords: &["openai", "gpt"],
-        oauth: false,
-        default_api_base: None,
-    },
-    ProviderSpec {
-        name: "github_copilot",
-        aliases: &["github-copilot", "githubCopilot", "copilot"],
-        keywords: &["github_copilot", "copilot"],
-        oauth: true,
-        default_api_base: None,
-    },
-];
-
-fn provider_spec(name: &str) -> Option<&'static ProviderSpec> {
-    let collapsed = collapse_provider_name(name);
-    if collapsed.is_empty() {
-        return None;
-    }
-
-    PROVIDER_SPECS
-        .iter()
-        .find(|spec| spec.matches_collapsed(&collapsed))
 }
 
 /// Gateway server configuration (host/port/heartbeat).
@@ -896,7 +926,12 @@ mod tests {
         )
         .expect("deserialize config");
 
-        assert_eq!(cfg.providers.github_copilot.api_key, "token-1");
+        assert_eq!(
+            cfg.providers
+                .get("github_copilot")
+                .map(|p| p.api_key.as_str()),
+            Some("token-1")
+        );
     }
 
     #[test]
@@ -912,14 +947,25 @@ mod tests {
         )
         .expect("deserialize config");
 
-        assert_eq!(cfg.providers.github_copilot.api_key, "token-1");
+        assert_eq!(
+            cfg.providers
+                .get("github_copilot")
+                .map(|p| p.api_key.as_str()),
+            Some("token-1")
+        );
     }
 
     #[test]
     fn auto_provider_selects_configured_key_provider() {
         let mut cfg = Config::default();
         cfg.agents.defaults.provider = "auto".to_string();
-        cfg.providers.openai.api_key = "key_xxx".to_string();
+        cfg.providers.insert(
+            "openai",
+            ProviderConfig {
+                api_key: "key_xxx".to_string(),
+                ..ProviderConfig::default()
+            },
+        );
 
         let name = cfg.get_provider_name(Some("gpt-4"));
         assert_eq!(name.as_deref(), Some("openai"));
@@ -936,19 +982,132 @@ mod tests {
     #[test]
     fn get_api_base_returns_none_for_builtin_providers() {
         let mut cfg = Config::default();
-        cfg.providers.openai.api_key = "key_xxx".to_string();
+        cfg.providers.insert(
+            "openai",
+            ProviderConfig {
+                api_key: "key_xxx".to_string(),
+                ..ProviderConfig::default()
+            },
+        );
 
         let base = cfg.get_api_base(Some("gpt-4"));
         assert_eq!(base, None);
     }
 
     #[test]
-    fn get_api_base_returns_default_for_anthropic() {
+    fn get_api_base_returns_configured_value_only() {
         let mut cfg = Config::default();
-        cfg.providers.anthropic.api_key = "sk-ant-xxx".to_string();
+        cfg.providers.insert(
+            "anthropic",
+            ProviderConfig {
+                api_key: "sk-ant-xxx".to_string(),
+                api_base: Some("https://anthropic.example/v1".to_string()),
+                ..ProviderConfig::default()
+            },
+        );
 
         let base = cfg.get_api_base(Some("anthropic/claude-opus-4-5"));
-        assert_eq!(base.as_deref(), Some("https://api.anthropic.com/v1"));
+        assert_eq!(base.as_deref(), Some("https://anthropic.example/v1"));
+    }
+
+    #[test]
+    fn providers_config_supports_arbitrary_provider_keys() {
+        let cfg: Config = serde_json::from_str(
+            r#"{
+                "providers": {
+                    "myVendor": {
+                        "providerType": "open_ai_compatible",
+                        "apiKey": "k"
+                    }
+                }
+            }"#,
+        )
+        .expect("deserialize config");
+        assert!(cfg.provider_config("myVendor").is_some());
+        assert_eq!(cfg.provider_type("myVendor"), ProviderType::OpenAiCompatible);
+    }
+
+    #[test]
+    fn provider_type_accepts_openai_alias() {
+        let cfg: Config = serde_json::from_str(
+            r#"{
+                "providers": {
+                    "myVendor": {
+                        "providerType": "openai",
+                        "apiKey": "k"
+                    }
+                }
+            }"#,
+        )
+        .expect("deserialize config");
+
+        assert_eq!(cfg.provider_type("myVendor"), ProviderType::OpenAiCompatible);
+    }
+
+    #[test]
+    fn provider_type_accepts_oauth_alias() {
+        let cfg: Config = serde_json::from_str(
+            r#"{
+                "providers": {
+                    "myVendor": {
+                        "providerType": "oauth",
+                        "apiKey": "k"
+                    }
+                }
+            }"#,
+        )
+        .expect("deserialize config");
+
+        assert_eq!(cfg.provider_type("myVendor"), ProviderType::OAuth);
+    }
+
+    #[test]
+    fn provider_type_defaults_from_builtin_provider_specs() {
+        let cfg = Config::default();
+        assert_eq!(cfg.provider_type("anthropic"), ProviderType::Anthropic);
+        assert_eq!(cfg.provider_type("openai"), ProviderType::OpenAiCompatible);
+        assert_eq!(cfg.provider_type("github_copilot"), ProviderType::OAuth);
+    }
+
+    #[test]
+    fn wire_api_accepts_chat_completions_alias() {
+        let cfg: Config = serde_json::from_str(
+            r#"{
+                "providers": {
+                    "myVendor": {
+                        "wireApi": "chat",
+                        "apiKey": "k"
+                    }
+                }
+            }"#,
+        )
+        .expect("deserialize config");
+
+        assert_eq!(cfg.wire_api("myVendor"), ProviderWireApi::ChatCompletions);
+    }
+
+    #[test]
+    fn active_model_prefers_provider_model() {
+        let cfg: Config = serde_json::from_str(
+            r#"{
+                "agents": {
+                    "defaults": {
+                        "provider": "xinx",
+                        "model": "anthropic/claude-sonnet-4-5"
+                    }
+                },
+                "providers": {
+                    "xinx": {
+                        "providerType": "openai",
+                        "model": "gpt-5.4",
+                        "apiKey": "k"
+                    }
+                }
+            }"#,
+        )
+        .expect("deserialize config");
+
+        assert_eq!(cfg.active_model().as_deref(), Some("gpt-5.4"));
     }
 
     #[test]

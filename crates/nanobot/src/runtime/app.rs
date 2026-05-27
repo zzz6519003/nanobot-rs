@@ -39,16 +39,19 @@ pub async fn build_runtime(config: Config) -> NanobotResult<RuntimeBundle> {
     let cron = Arc::new(CronService::new(cron_store_path));
 
     let defaults = &config.agents.defaults;
+    let active_model = config
+        .active_model()
+        .unwrap_or_else(|| defaults.model.clone());
     let heartbeat = Arc::new(HeartbeatService::new(
         workspace.clone(),
         provider.clone(),
-        defaults.model.clone(),
+        active_model.clone(),
         config.gateway.heartbeat.interval_s,
         config.gateway.heartbeat.enabled,
     ));
 
     let agent_config = AgentConfig {
-        model: defaults.model.clone(),
+        model: active_model,
         max_iterations: defaults.max_tool_iterations,
         temperature: defaults.temperature,
         max_tokens: defaults.max_tokens,
@@ -66,6 +69,8 @@ pub async fn build_runtime(config: Config) -> NanobotResult<RuntimeBundle> {
         .with_send_usage_summary(config.channels.send_usage_summary)
         .with_auto_consolidation(config.agents.defaults.auto_consolidate);
 
+    // ACP 不是主 provider，而是一个按需注入的“外部编码代理工具”。
+    // 这样可以保持主对话模型与外部 coding agent 的职责解耦。
     if let Some(acp_config) = config.acp.clone() {
         builder = builder.with_custom_tool(Arc::new(ACPTool::new(acp_config)));
     }

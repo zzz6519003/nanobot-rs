@@ -1,6 +1,6 @@
 # Provider Fallback 实现说明
 
-本文档描述 `nanobot-rs` 中 **当前已经实现** 的 provider fallback 行为，不再保留面向未来的设计讨论或过长的使用示例。
+本文档描述 `nanobot` 中 **当前已经实现** 的 provider fallback 行为，不再保留面向未来的设计讨论或过长的使用示例。
 
 ## 作用
 
@@ -22,8 +22,8 @@ fallback 由 provider 工厂自动装配。
 当配置中存在：
 
 - `agents.defaults.provider`
-- `agents.defaults.model`
 - `agents.defaults.fallbackProviders`
+- `providers.<name>.model`（可选，provider 级默认模型）
 
 运行时会：
 
@@ -51,9 +51,11 @@ fallback 由 provider 工厂自动装配。
       "apiKey": "sk-ant-..."
     },
     "openai": {
+      "wireApi": "responses",
       "apiKey": "sk-..."
     },
     "custom": {
+      "wireApi": "chat_completions",
       "apiBase": "https://your-endpoint.example.com/v1",
       "apiKey": "token"
     }
@@ -65,6 +67,10 @@ fallback 由 provider 工厂自动装配。
 
 - 主 provider：根据 `model` 和 `provider` 推断
 - fallback 顺序：`openai` -> `custom`
+
+说明：
+
+- 当前 fallback 不会按 `providerType` 自动过滤，`fallbackProviders` 中配置了就会加入链路。
 
 ## 当前行为
 

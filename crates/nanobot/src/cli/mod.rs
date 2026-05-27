@@ -27,9 +27,9 @@ use nanobot_types::SessionKey;
 
 #[derive(Debug, Parser)]
 #[command(
-    name = "nanobot-rs",
+    name = "nanobot",
     about = "nanobot command-line interface",
-    long_about = "nanobot-rs command-line interface for onboarding, running the agent, and managing providers."
+    long_about = "nanobot command-line interface for onboarding, running the agent, and managing providers."
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -82,6 +82,7 @@ pub struct AgentArgs {
 
 #[derive(Debug, Args)]
 pub struct GatewayArgs {
+    // TODO: unused now.
     #[arg(
         long,
         short,
@@ -164,10 +165,10 @@ async fn onboard(args: OnboardArgs) -> NanobotResult<()> {
 
     let _ = sync_workspace_templates(&workspace, false).await?;
 
-    println!("\n🐈 nanobot-rs is ready!");
+    println!("\n nanobot is ready!");
     println!("\nNext steps:");
     println!("  1. Add your API key to ~/.nanobot/config.json");
-    println!("  2. Chat: nanobot-rs agent -m \"Hello!\"");
+    println!("  2. Chat: nanobot agent -m \"Hello!\"");
 
     Ok(())
 }
@@ -183,6 +184,7 @@ async fn agent(args: AgentArgs) -> NanobotResult<()> {
     if let Some(message) = args.message {
         let (channel, chat_id) = split_session(&args.session);
         let session_key = SessionKey::from(args.session.as_str());
+        // 单轮模式：直接走 process_direct，不启动完整 inbound/outbound 循环。
         let response = runtime
             .agent
             .process_direct(&message, &session_key, &channel, &chat_id)
@@ -190,27 +192,29 @@ async fn agent(args: AgentArgs) -> NanobotResult<()> {
         runtime.agent.close_mcp().await;
         runtime.agent.close_provider().await;
         let response = response?;
-        println!("\n🐈 nanobot response:\n\n{}\n", response);
+        println!("\n nanobot response:\n\n{}\n", response);
         return Ok(());
     }
 
-    println!("🐈 Interactive mode (type exit/quit to quit)\n");
+    println!("Interactive mode (type exit/quit to quit)\n");
     let session_key = args.session.clone();
     let (channel, chat_id) = split_session(&args.session);
     let agent_arc = runtime.agent.clone();
+    // 交互模式下，AgentLoop 在后台消费 inbound 消息；CLI 只负责输入输出桥接。
     let agent_task = tokio::spawn(async move { agent_arc.run().await });
 
     let mut outbound_rx = runtime.bus.subscribe_outbound();
     let output_channel = channel.clone();
     let output_chat_id = chat_id.clone();
     let output_task = tokio::spawn(async move {
+        // 输出协程：只打印当前 session 的消息，避免多会话串屏。
         loop {
             match outbound_rx.recv().await {
                 Ok(msg) => {
                     if matches_outbound_session(&msg, &output_channel, &output_chat_id)
                         && !msg.content.trim().is_empty()
                     {
-                        println!("\n🐈 nanobot\n\n{}\n", msg.content);
+                        println!("\n nanobot\n\n{}\n", msg.content);
                     }
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
@@ -223,6 +227,7 @@ async fn agent(args: AgentArgs) -> NanobotResult<()> {
     let input_channel = channel.clone();
     let input_chat_id = chat_id.clone();
     let input_task = tokio::spawn(async move {
+        // 输入协程：把终端输入封装成 InboundMessage 后投递到总线。
         let stdin = tokio::io::stdin();
         let mut reader = BufReader::new(stdin).lines();
 
@@ -283,7 +288,7 @@ async fn status() -> NanobotResult<()> {
     let config = load_config(Some(&config_path))?;
     let workspace = PathBuf::from(config.workspace_path());
 
-    println!("🐈 nanobot-rs Status\n");
+    println!("nanobot Status\n");
     println!(
         "Config: {} {}",
         config_path.display(),
@@ -294,7 +299,10 @@ async fn status() -> NanobotResult<()> {
         workspace.display(),
         if workspace.exists() { "✓" } else { "✗" }
     );
-    println!("Model: {}", config.agents.defaults.model);
+    let model = config
+        .active_model()
+        .unwrap_or_else(|| config.agents.defaults.model.clone());
+    println!("Model: {}", model);
 
     if let Some(name) = config.get_provider_name(None) {
         println!("Provider: {}", name);
@@ -427,7 +435,7 @@ async fn gateway(args: GatewayArgs) -> NanobotResult<()> {
         runtime.config.channels.clone(),
         runtime.bus.clone(),
     )?);
-    println!("🐈 Starting nanobot-rs gateway on port {}...", args.port);
+    println!("Starting nanobot gateway on port {}...", args.port);
 
     let agent = runtime.agent.clone();
     let bus = runtime.bus.clone();

@@ -14,6 +14,7 @@ just lint            # clippy + taplo
 just check           # cargo check
 just test            # cargo test --all-targets --all-features
 just e2e             # 离线端到端测试
+just e2e-codex       # 离线端到端测试（含 codex MCP connect smoke）
 just ci              # 本地 CI 流程
 ```
 
@@ -78,7 +79,7 @@ cargo test --test e2e_local codex_mcp_connect_smoke -- --ignored --nocapture
 
 ```bash
 RUST_LOG=debug cargo run -- agent -m "hello"
-RUST_LOG=nanobot_rs::agent=trace cargo run -- agent -m "hello"
+RUST_LOG=nanobot.agent=trace cargo run -- agent -m "hello"
 ```
 
 ### 常用排查点
@@ -87,7 +88,7 @@ RUST_LOG=nanobot_rs::agent=trace cargo run -- agent -m "hello"
 - `~/.nanobot/workspace/`：模板、记忆、会话文件是否生成
 - Provider API base 是否与协议匹配：
   - Anthropic -> `messages`
-  - OpenAI / custom -> `responses`
+  - OpenAI / custom -> `responses`（默认）或 `chat/completions`（`wireApi=chat_completions`）
 
 ## 文档维护原则
 

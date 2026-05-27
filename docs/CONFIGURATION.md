@@ -1,0 +1,153 @@
+# 配置参考
+
+本文档基于当前源码实现，说明 `~/.nanobot/config.json` 的主要字段、默认值与行为边界。
+
+## 1. 配置文件位置与加载规则
+
+- 默认路径：`~/.nanobot/config.json`
+- 加载函数：`nanobot_config::load_config`
+- 若文件不存在或解析失败：回退到 `Config::default()`
+- 支持环境变量替换：`{{ENV_VAR}}` 形式会在解析前替换
+
+示例：
+
+```json
+{
+  "providers": {
+    "anthropic": {
+      "apiKey": "{{ANTHROPIC_API_KEY}}"
+    }
+  }
+}
+```
+
+## 2. 顶层结构
+
+```json
+{
+  "agents": {},
+  "channels": {},
+  "providers": {},
+  "gateway": {},
+  "tools": {},
+  "acp": {}
+}
+```
+
+其中 `acp` 为可选字段。
+
+## 3. agents.defaults
+
+关键字段（含默认值）：
+
+- `workspace`: `~/.nanobot/workspace`
+- `model`: `anthropic/claude-sonnet-4-5`
+- `provider`: `auto`
+- `fallbackProviders`: `null`
+- `maxTokens`: `8192`
+- `temperature`: `0.1`
+- `maxToolIterations`: `40`
+- `memoryWindow`: `100`
+- `reasoningEffort`: `null`
+- `autoConsolidate`: `true`
+
+校验规则：
+
+- `maxTokens > 0`
+- `temperature` 在 `[0.0, 2.0]`
+- `maxToolIterations > 0`
+- `memoryWindow > 0`
+- `workspace` / `model` 非空
+
+## 4. providers
+
+当前支持的 provider 键：
+
+- `anthropic`
+- `openai`
+- `custom`
+- `github_copilot`
+
+`provider` 名称支持别名归一化（如 `github-copilot`、`githubCopilot` 会归一为 `github_copilot`）。
+
+`providers` 现在是 **HashMap 结构**，可添加任意自定义 provider 键。  
+每个 provider 配置都使用同一个 `ProviderConfig` 结构。
+
+`ProviderConfig` 关键字段：
+
+- `providerType`（可选）：
+  - `open_ai_compatible`：按 OpenAI-compatible 接口处理（默认，兼容别名 `openai`）
+  - `anthropic`：按 Anthropic Messages 接口处理
+  - `oauth`：OAuth 类型（不作为主 LLM provider 注入，兼容旧值 `o_auth`）
+- `model`（可选）：该 provider 的默认模型。配置后会优先于 `agents.defaults.model`
+- `wireApi`（可选，仅 OpenAI-compatible）：
+  - `responses`：使用 `/responses`（默认）
+  - `chat_completions`：使用 `/chat/completions`（兼容别名 `chat` / `completions`）
+- `apiKey`
+- `apiBase`
+- `extraHeaders`
+
+`provider=auto` 时，会按模型名和已配置鉴权信息推断 provider。  
+`fallbackProviders` 配置后，会按顺序构建 fallback 链。
+
+注意：
+
+- `github_copilot` 当前不作为主 LLM provider 注入运行时（应通过 ACP 工具使用）。
+- `custom` 默认走 OpenAI-compatible `responses` 路径，可通过 `wireApi` 切换到 `chat/completions`；默认 `apiBase` 为 `http://localhost:8000/v1`（未配置时）。
+
+## 5. channels
+
+公共字段：
+
+- `sendProgress`（默认 `true`）
+- `sendToolHints`（默认 `false`）
+- `sendUsageSummary`（默认 `false`）
+- `streamMode`（默认 `updateAll`，可选：`updateAll` / `updateProgress` / `append`）
+
+通道字段结构（`telegram` / `discord` / `feishu`）：
+
+- `enabled: bool`
+- `allowFrom: string[]`
+- 其余字段通过 `extra` 承载（配置文件中直接写扁平字段）
+
+`allowFrom` 约束（启用通道时）：
+
+- 不能为空
+- 不允许空字符串或首尾空白
+- `*` 不能和显式 id 混用
+
+Telegram 额外字段：
+
+- `token`（必填）
+- `apiBase`（可选，默认 `https://api.telegram.org`）
+- `receiveAck`（可选，默认 `false`）
+
+## 6. tools
+
+- `web.proxy`: 可选 HTTP 代理
+- `web.search.apiKey`: `web_search` 所需 API key
+- `web.search.maxResults`: 默认 `5`，需 `> 0`
+- `exec.timeout`: 默认 `60`（秒），需 `> 0`
+- `exec.pathAppend`: 追加到 PATH
+- `restrictToWorkspace`: 是否限制文件工具在 workspace 内
+- `mcpServers`: MCP server 定义（每个 server 需至少提供 `command` 或 `url`）
+
+## 7. gateway
+
+- `host`: 默认 `0.0.0.0`
+- `port`: 默认 `18790`
+- `heartbeat.enabled`: 默认 `true`
+- `heartbeat.intervalS`: 默认 `1800`
+
+说明：当前二进制的 `gateway` 子命令会启动 channels + cron + heartbeat + agent loop。`host/port` 字段已保留并校验，但不代表已暴露独立 HTTP API 服务。
+
+## 8. acp（可选）
+
+`acp` 配置用于注入 `acp_execute` 工具，典型字段：
+
+- `enabled`
+- `defaultAgent`
+- `allowedAgents`
+- `agents.<name>.command/args/env`
+
+默认内置了 `claude` / `codex` / `copilot` 三个 agent 配置模板。
