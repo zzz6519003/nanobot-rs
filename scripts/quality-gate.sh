@@ -27,6 +27,7 @@ case "$phase" in
       refspec_file="$(mktemp)"
       cat >"$refspec_file"
       trap 'rm -f "$refspec_file"' EXIT
+      bash "$repo_root/scripts/verify-tag-version.sh" "$refspec_file"
       bash "$repo_root/scripts/verify-tag-changelog.sh" "$refspec_file"
     fi
     ;;

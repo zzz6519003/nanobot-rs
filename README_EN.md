@@ -114,7 +114,7 @@ GitHub Actions are configured for:
 - `Release`: cross-platform packaging and automatic GitHub Release on `v*` tags
 
 See `docs/DEPLOYMENT.md` for release details.
-Before tagging, you can run `just changelog vX.Y.Z` to auto-generate a `CHANGELOG.md` entry.
+Before tagging, you can run `just changelog vX.Y.Z` to auto-generate a `CHANGELOG.md` entry. The `pre-push` hook now enforces both changelog presence and Cargo.toml version alignment for pushed `v*` tags.
 
 ## Development Commands
 

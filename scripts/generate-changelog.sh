@@ -99,7 +99,7 @@ append_commit() {
   esac
 }
 
-while IFS='|' read -r subject short_sha full_sha; do
+while IFS='|' read -r subject short_sha full_sha || [[ -n "${subject:-}" ]]; do
   [[ -z "${subject// }" ]] && continue
   if [[ -n "$repo_url" ]]; then
     sha_ref="[\`${short_sha}\`](${repo_url}/commit/${full_sha})"

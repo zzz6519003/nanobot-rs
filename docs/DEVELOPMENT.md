@@ -119,7 +119,7 @@ git tag v0.0.4
 git push origin main --tags
 ```
 
-> 已固化约束：`pre-push` 会检查本次 push 的 tag（`refs/tags/*`）是否在 `CHANGELOG.md` 中存在对应条目（`## [vX.Y.Z] - ...`）。未命中时会直接拦截 push，并提示运行 `just changelog <tag>`。
+> 已固化约束：`pre-push` 会检查本次 push 的 tag（`refs/tags/*`）是否在 `CHANGELOG.md` 中存在对应条目（`## [vX.Y.Z] - ...`），并校验 `Cargo.toml` 的 `[workspace.package].version` 与 tag 版本一致。未通过会直接拦截 push。
 
 建议在提交前至少本地执行：
 
@@ -140,6 +140,7 @@ just e2e
 实际检查逻辑统一定义在：
 
 - `scripts/quality-gate.sh`
+- `scripts/verify-tag-version.sh`（tag 推送前 Cargo.toml 版本对齐校验）
 - `scripts/verify-tag-changelog.sh`（tag 推送前 changelog 校验）
 - `just hook-commit`
 - `just hook-push`

@@ -6,8 +6,11 @@ All notable changes to this project are documented in this file.
 
 ## [v0.0.8] - 2026-05-28
 
-### Changed
-- No notable changes.
+### Added
+- Add loop-level usage aggregation ([`aab7db6`](https://github.com/yjhmelody/nanobot-rs/commit/aab7db6e1d5f8ebdccc2a978232759ea6dd4729e))
+
+### Documentation
+- Enforce changelog check before tag push ([`63cdd05`](https://github.com/yjhmelody/nanobot-rs/commit/63cdd051ac3f5e44846fbf3facb3041df1ffc6d0))
 
 
 ## [v0.0.5] - 2026-05-27
@@ -33,4 +36,3 @@ All notable changes to this project are documented in this file.
 
 ### Documentation
 - Improve release automation and changelog tooling ([`627fce7`](https://github.com/yjhmelody/nanobot-rs/commit/627fce7))
-
