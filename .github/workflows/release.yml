@@ -43,6 +43,10 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
+      - name: Install build deps
+        shell: bash
+        run: ./scripts/install-deps.sh
+
       - name: Resolve release version
         id: version
         shell: bash

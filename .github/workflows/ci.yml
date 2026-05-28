@@ -37,6 +37,9 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
+      - name: Install build deps
+        run: ./scripts/install-deps.sh
+
       - name: Install Taplo
         uses: taiki-e/install-action@v2
         with:
@@ -74,6 +77,10 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
+      - name: Install build deps
+        shell: bash
+        run: ./scripts/install-deps.sh
+
       - name: Test
         run: cargo test --all-targets --all-features
         if: matrix.os != 'windows-latest'
@@ -96,6 +103,9 @@ jobs:
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
+
+      - name: Install build deps
+        run: ./scripts/install-deps.sh
 
       - name: Run offline E2E
         run: cargo test -p nanobot --test e2e_local -- --nocapture

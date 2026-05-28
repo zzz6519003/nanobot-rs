@@ -6,6 +6,10 @@ default: list
 list:
   @just --list
 
+# Install system build dependencies (protoc, etc.) — run once after checkout
+install-deps:
+  ./scripts/install-deps.sh
+
 # Format Rust and TOML files
 fmt:
   cargo fmt --all
