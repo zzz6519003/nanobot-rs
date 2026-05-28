@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
+use std::time::Instant;
 
 use agent_client_protocol::{
     Client, ClientCapabilities, Content, ContentBlock, CreateTerminalRequest,
@@ -25,6 +26,15 @@ pub struct SimpleClient {
     state: Arc<Mutex<SimpleClientState>>,
     allow_fs: bool,
     allow_terminal: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct TurnSnapshot {
+    pub elapsed_secs: u64,
+    pub idle_secs: u64,
+    pub updates_count: usize,
+    pub buffer_bytes: usize,
+    pub last_update_kind: Option<&'static str>,
 }
 
 impl SimpleClient {
@@ -63,6 +73,15 @@ impl SimpleClient {
         state
             .session_buffers
             .insert(session_id.clone(), String::new());
+        state.session_turn_meta.insert(
+            session_id.clone(),
+            SessionTurnMeta {
+                started_at: Instant::now(),
+                last_update_at: Instant::now(),
+                updates_count: 0,
+                last_update_kind: None,
+            },
+        );
     }
 
     pub async fn take_turn_output(
@@ -77,11 +96,29 @@ impl SimpleClient {
             .unwrap_or_default()
             .trim()
             .to_string();
+        state.session_turn_meta.remove(session_id);
         if output.is_empty() {
             format!("(ACP turn finished: {})", stop_reason_label(stop_reason))
         } else {
             output
         }
+    }
+
+    pub async fn turn_snapshot(&self, session_id: &SessionId) -> Option<TurnSnapshot> {
+        let state = self.state.lock().await;
+        let meta = state.session_turn_meta.get(session_id)?;
+        let buffer_bytes = state
+            .session_buffers
+            .get(session_id)
+            .map(|value| value.len())
+            .unwrap_or(0);
+        Some(TurnSnapshot {
+            elapsed_secs: meta.started_at.elapsed().as_secs(),
+            idle_secs: meta.last_update_at.elapsed().as_secs(),
+            updates_count: meta.updates_count,
+            buffer_bytes,
+            last_update_kind: meta.last_update_kind,
+        })
     }
 
     pub async fn close_all_terminals(&self) {
@@ -292,8 +329,16 @@ impl Client for SimpleClient {
 struct SimpleClientState {
     default_cwd: PathBuf,
     session_buffers: HashMap<SessionId, String>,
+    session_turn_meta: HashMap<SessionId, SessionTurnMeta>,
     terminals: HashMap<TerminalId, TerminalEntry>,
     next_terminal_id: u64,
+}
+
+struct SessionTurnMeta {
+    started_at: Instant,
+    last_update_at: Instant,
+    updates_count: usize,
+    last_update_kind: Option<&'static str>,
 }
 
 impl SimpleClientState {
@@ -301,6 +346,7 @@ impl SimpleClientState {
         Self {
             default_cwd,
             session_buffers: HashMap::new(),
+            session_turn_meta: HashMap::new(),
             terminals: HashMap::new(),
             next_terminal_id: 0,
         }
@@ -315,6 +361,12 @@ impl SimpleClientState {
         let Some(buffer) = self.session_buffers.get_mut(&notification.session_id) else {
             return;
         };
+
+        if let Some(meta) = self.session_turn_meta.get_mut(&notification.session_id) {
+            meta.last_update_at = Instant::now();
+            meta.updates_count += 1;
+            meta.last_update_kind = Some(session_update_kind(&notification.update));
+        }
 
         match notification.update {
             SessionUpdate::AgentMessageChunk(chunk) => {
@@ -345,6 +397,16 @@ impl SimpleClientState {
             }
             _ => {}
         }
+    }
+}
+
+fn session_update_kind(update: &SessionUpdate) -> &'static str {
+    match update {
+        SessionUpdate::AgentMessageChunk(_) => "agent_message_chunk",
+        SessionUpdate::ToolCall(_) => "tool_call",
+        SessionUpdate::ToolCallUpdate(_) => "tool_call_update",
+        SessionUpdate::Plan(_) => "plan",
+        _ => "other",
     }
 }
 
@@ -527,5 +589,24 @@ mod tests {
             ),
         ));
         assert_eq!(extract_content_text(&resource), "body");
+    }
+
+    #[tokio::test]
+    async fn begin_turn_creates_snapshot_and_take_turn_cleans_it() {
+        let session_id = SessionId::new("demo-session");
+        let client = SimpleClient::new(std::env::temp_dir());
+        client.begin_turn(&session_id).await;
+
+        let before = client
+            .turn_snapshot(&session_id)
+            .await
+            .expect("snapshot exists after begin_turn");
+        assert_eq!(before.updates_count, 0);
+        assert_eq!(before.buffer_bytes, 0);
+
+        let _ = client
+            .take_turn_output(&session_id, StopReason::EndTurn)
+            .await;
+        assert!(client.turn_snapshot(&session_id).await.is_none());
     }
 }

@@ -20,6 +20,7 @@ use crate::acp::simple_client::SimpleClient;
 const INIT_TIMEOUT: Duration = Duration::from_secs(20);
 const EXECUTE_TIMEOUT: Duration = Duration::from_secs(1_200);
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(20);
+const TARGET: &str = "nanobot::acp::client";
 
 pub struct ACPClient {
     agent_id: String,
@@ -106,7 +107,13 @@ impl ACPClient {
 
         match tokio::time::timeout(EXECUTE_TIMEOUT, reply_rx)
             .await
-            .context("ACP execute request timed out")?
+            .with_context(|| {
+                format!(
+                    "ACP execute request timed out for '{}' after {}s (likely waiting for external auth/approval or blocked terminal interaction)",
+                    self.agent_id,
+                    EXECUTE_TIMEOUT.as_secs()
+                )
+            })?
         {
             Ok(result) => result,
             Err(err) => Err(anyhow!("ACP execute response channel closed: {}", err)),
@@ -114,7 +121,7 @@ impl ACPClient {
     }
 
     pub async fn close(mut self) -> Result<()> {
-        info!("closing ACP client for '{}'", self.agent_id);
+        info!(target: TARGET, "closing ACP client for '{}'", self.agent_id);
         let mut shutdown_result = Ok(());
         let (reply_tx, reply_rx) = oneshot::channel();
         if self
@@ -230,7 +237,7 @@ impl ACPActor {
 
         tokio::task::spawn_local(async move {
             if let Err(err) = io_task.await {
-                warn!("ACP transport loop exited with error: {}", err);
+                warn!(target: TARGET, "ACP transport loop exited with error: {}", err);
             }
         });
 
@@ -243,6 +250,7 @@ impl ACPActor {
             .await
             .map_err(|err| anyhow!("ACP initialize failed: {}", err))?;
         info!(
+            target: TARGET,
             "ACP initialized with protocol version {}",
             initialize_response.protocol_version
         );
@@ -281,12 +289,39 @@ impl ACPActor {
 
         let prompt_request =
             PromptRequest::new(self.session_id.clone(), vec![ContentBlock::from(task)]);
-        match self.connection.prompt(prompt_request).await {
+        let mut prompt = Box::pin(self.connection.prompt(prompt_request));
+        let mut ticker = tokio::time::interval(Duration::from_secs(15));
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        ticker.tick().await;
+
+        let response = loop {
+            tokio::select! {
+                result = &mut prompt => break result,
+                _ = ticker.tick() => {
+                    if let Some(snapshot) = self.client.turn_snapshot(&self.session_id).await {
+                        info!(
+                            target: TARGET,
+                            elapsed_secs = snapshot.elapsed_secs,
+                            idle_secs = snapshot.idle_secs,
+                            updates_count = snapshot.updates_count,
+                            buffer_bytes = snapshot.buffer_bytes,
+                            last_update_kind = snapshot.last_update_kind.unwrap_or("none"),
+                            "ACP turn still running"
+                        );
+                    } else {
+                        info!(target: TARGET, "ACP turn still running");
+                    }
+                }
+            }
+        };
+
+        match response {
             Ok(response) => Ok(self
                 .client
                 .take_turn_output(&self.session_id, response.stop_reason)
                 .await),
             Err(err) => {
+                let snapshot = self.client.turn_snapshot(&self.session_id).await;
                 let partial = self
                     .client
                     .take_turn_output(&self.session_id, StopReason::Cancelled)
@@ -298,7 +333,30 @@ impl ACPActor {
                 };
 
                 if partial_output.is_empty() {
-                    Err(anyhow!("ACP prompt failed: {}", err))
+                    if let Some(snapshot) = snapshot {
+                        Err(anyhow!(
+                            "ACP prompt failed: {}. Turn telemetry: elapsed={}s idle={}s updates={} buffer_bytes={} last_update={}",
+                            err,
+                            snapshot.elapsed_secs,
+                            snapshot.idle_secs,
+                            snapshot.updates_count,
+                            snapshot.buffer_bytes,
+                            snapshot.last_update_kind.unwrap_or("none")
+                        ))
+                    } else {
+                        Err(anyhow!("ACP prompt failed: {}", err))
+                    }
+                } else if let Some(snapshot) = snapshot {
+                    Err(anyhow!(
+                        "ACP prompt failed: {}. Turn telemetry: elapsed={}s idle={}s updates={} buffer_bytes={} last_update={}. Partial output:\n{}",
+                        err,
+                        snapshot.elapsed_secs,
+                        snapshot.idle_secs,
+                        snapshot.updates_count,
+                        snapshot.buffer_bytes,
+                        snapshot.last_update_kind.unwrap_or("none"),
+                        partial_output
+                    ))
                 } else {
                     Err(anyhow!(
                         "ACP prompt failed: {}. Partial output:\n{}",
