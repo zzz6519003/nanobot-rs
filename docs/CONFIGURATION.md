@@ -163,11 +163,11 @@ DeepSeek（Anthropic-compatible）示例：
 | CLI | 无（内置） | 可用（本地终端） |
 | Telegram | `channels.telegram` | 可用（完整适配器） |
 | Discord | `channels.discord` | 占位实现（Placeholder） |
-| Feishu | `channels.feishu` | 占位实现（Placeholder） |
+| Feishu/Lark | `channels.feishu`（支持别名 `channels.lark`） | 可用（应用 API 对话 + 事件订阅入站；兼容 webhook 出站） |
 
 说明：
 
-- `channels` 配置结构当前只定义了 `telegram/discord/feishu` 三个外部通道键。
+- `channels` 配置结构当前只定义了 `telegram/discord/feishu` 三个外部通道键；其中 `feishu` 支持配置别名 `lark`。
 - 其他未在结构中定义的 channel 键不会被当前运行时接入。
 
 公共字段：
@@ -194,6 +194,22 @@ Telegram 额外字段：
 - `token`（必填）
 - `apiBase`（可选，默认 `https://api.telegram.org`）
 - `receiveAck`（可选，默认 `false`）
+
+Feishu/Lark 额外字段：
+
+- `webhook`（可选；也可用 `webhookUrl` / `url` / `botKey`，用于 webhook 出站）
+- `appId` + `appSecret`（可选；两者需同时配置，用于应用 API 按 `chat_id` 回消息）
+- `secret`（可选；也可用 `signSecret`，用于签名）
+- `apiBase`（可选；仅在使用 `botKey` 时拼接 webhook，默认 `https://open.feishu.cn`）
+- `verifyToken`（可选；事件订阅 token 校验）
+- `callbackListen`（可选；默认 `0.0.0.0:19820`）
+- `callbackPath`（可选；默认 `/feishu/events`）
+- `eventEnabled`（可选；默认在 `appId/appSecret` 模式下为 `true`，关闭后仅出站）
+
+说明：`feishu` 启用时，至少需要配置以下其一：
+
+- `webhook` / `webhookUrl` / `url` / `botKey`
+- `appId` + `appSecret`
 
 ## 6. tools
 

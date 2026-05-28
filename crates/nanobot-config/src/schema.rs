@@ -441,6 +441,7 @@ pub struct ChannelsConfig {
     /// Discord channel configuration.
     pub discord: GenericChannelConfig,
     /// Feishu channel configuration.
+    #[serde(alias = "lark")]
     pub feishu: GenericChannelConfig,
 }
 

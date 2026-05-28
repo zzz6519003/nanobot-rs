@@ -4,6 +4,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+default = ["channel-telegram", "channel-feishu", "channel-discord"]
+channel-telegram = ["nanobot-channels/channel-telegram"]
+channel-feishu = ["nanobot-channels/channel-feishu"]
+channel-discord = ["nanobot-channels/channel-discord"]
+
 [[bin]]
 name = "nanobot"
 path = "src/main.rs"
@@ -19,7 +25,7 @@ nanobot-prompt = { workspace = true }
 nanobot-tools = { workspace = true }
 nanobot-cron = { workspace = true }
 nanobot-agent = { workspace = true }
-nanobot-channels = { workspace = true }
+nanobot-channels = { workspace = true, default-features = false }
 
 # Async
 tokio = { workspace = true }

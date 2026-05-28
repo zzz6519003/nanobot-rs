@@ -25,7 +25,7 @@ cargo run -- gateway
 
 - `MessageBus`：统一收发消息
 - `AgentLoop`：主执行循环
-- `ChannelManager`：管理 `cli/telegram/discord/feishu` 适配器（其中后两者当前为占位）
+- `ChannelManager`：管理 `cli/telegram/discord/feishu(lark)` 适配器（其中 discord 当前为占位）
 - `CronService`：定时任务调度
 - `HeartbeatService`：按 `HEARTBEAT.md` 决策是否执行提醒任务
 
@@ -70,6 +70,34 @@ cargo run -- gateway
 
 - 必须非空
 - `*` 与显式 ID 不能并存
+
+### Feishu / Lark（推荐应用模式）
+
+至少配置：
+
+```json
+{
+  "channels": {
+    "feishu": {
+      "enabled": true,
+      "allowFrom": ["*"],
+      "appId": "<feishu-app-id>",
+      "appSecret": "<feishu-app-secret>",
+      "verifyToken": "<event-subscription-token>"
+    }
+  }
+}
+```
+
+可选：
+
+- `webhook` / `webhookUrl` / `url` / `botKey`（Webhook 出站）
+- `secret` / `signSecret`
+- `apiBase`（仅配 `botKey` 时使用）
+- `verifyToken`
+- `callbackListen`（默认 `0.0.0.0:19820`）
+- `callbackPath`（默认 `/feishu/events`）
+- `eventEnabled`（默认 `true`）
 
 ## 6. 生产运行建议
 

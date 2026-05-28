@@ -8,7 +8,6 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tracing::{error, info, warn};
 
-use crate::TARGET;
 use crate::base::{ChannelAdapter, SendOutcome, is_sender_allowed};
 use crate::error::{ChannelError, ChannelResult};
 use nanobot_bus::{InboundMessage, MessageBus, MessageId, MessageMetadata, OutboundMessage};
@@ -16,6 +15,7 @@ use nanobot_config::schema::GenericChannelConfig;
 
 const TELEGRAM_API_DEFAULT: &str = "https://api.telegram.org";
 const TELEGRAM_TEXT_LIMIT: usize = 4000;
+const LOG_TARGET: &str = "nanobot::channels::telegram";
 
 #[derive(Debug, Serialize, Deserialize)]
 struct TelegramUpdatesResponse {
@@ -150,7 +150,7 @@ impl ChannelAdapter for TelegramChannel {
                     Ok(v) => v,
                     Err(err) => {
                         warn!(
-                            target: TARGET,
+                            target: LOG_TARGET,
                             "telegram getUpdates request failed: {}",
                             err
                         );
@@ -163,7 +163,7 @@ impl ChannelAdapter for TelegramChannel {
                     Ok(v) => v,
                     Err(err) => {
                         warn!(
-                            target: TARGET,
+                            target: LOG_TARGET,
                             "telegram getUpdates parse failed: {}",
                             err
                         );
@@ -214,7 +214,7 @@ impl ChannelAdapter for TelegramChannel {
                     };
                     if let Err(err) = bus.publish_inbound(inbound) {
                         error!(
-                            target: TARGET,
+                            target: LOG_TARGET,
                             "telegram publish inbound failed: {}",
                             err
                         );
@@ -224,7 +224,7 @@ impl ChannelAdapter for TelegramChannel {
         });
 
         *self.poll_task.lock().await = Some(handle);
-        info!(target: TARGET, "telegram channel started");
+        info!(target: LOG_TARGET, "telegram channel started");
         Ok(())
     }
 

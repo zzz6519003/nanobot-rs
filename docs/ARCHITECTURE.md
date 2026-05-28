@@ -166,7 +166,7 @@ ReAct 相关模块拆分在 `crates/nanobot-agent/src/react/`：
 - `cli`：内置、可用
 - `telegram`：已实现
 - `discord`：占位实现
-- `feishu`：占位实现
+- `feishu/lark`：已实现（Webhook 出站 + 事件订阅入站）
 
 Gateway 模式会启动渠道管理器，并把 outbound message 分发到对应渠道。
 

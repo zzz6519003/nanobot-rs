@@ -4,12 +4,12 @@
 pub mod base;
 pub mod cli;
 pub mod error;
+#[cfg(feature = "channel-feishu")]
+pub mod feishu;
 pub mod manager;
 pub mod placeholder;
+#[cfg(feature = "channel-telegram")]
 pub mod telegram;
 
 pub use error::{ChannelError, ChannelResult};
 pub use manager::ChannelManager;
-
-/// Tracing target for channel-related log events.
-pub(crate) const TARGET: &str = "nanobot::channels";

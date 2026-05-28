@@ -4,17 +4,40 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+default = ["channel-telegram", "channel-feishu", "channel-discord"]
+channel-telegram = []
+channel-feishu = [
+  "dep:axum",
+  "dep:base64",
+  "dep:hmac",
+  "dep:sha2",
+  "dep:openlark",
+  "dep:openlark-auth",
+  "dep:openlark-core",
+  "dep:openlark-communication",
+]
+channel-discord = []
+
 [dependencies]
 nanobot-bus = { workspace = true }
 nanobot-config = { workspace = true }
 async-trait = { workspace = true }
 reqwest = { workspace = true }
+axum = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true }
+base64 = { workspace = true, optional = true }
+hmac = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+openlark = { workspace = true, optional = true }
+openlark-auth = { workspace = true, optional = true }
+openlark-core = { workspace = true, optional = true }
+openlark-communication = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true }

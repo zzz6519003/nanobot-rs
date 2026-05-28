@@ -251,7 +251,7 @@ nanobot gateway
 - `cli`：可用
 - `telegram`：可用
 - `discord`：占位实现
-- `feishu`：占位实现
+- `feishu/lark`：可用（应用 API 对话 + 事件订阅入站；兼容 webhook 出站）
 
 启用 Telegram 时至少需要：
 
@@ -271,6 +271,31 @@ Telegram 额外字段（可选）：
 
 - `apiBase`：自定义 Telegram API 地址（默认 `https://api.telegram.org`）。
 - `receiveAck`：是否在收到消息后发送 `sendChatAction` 的 `typing` 作为“已收到”提示。`typing` 状态会持续约 5 秒或更短，并会在机器人发送消息后被清除；且在频道聊天与频道私聊中不支持，仅建议在响应需要较长时间时开启。
+
+启用 Feishu/Lark（应用模式，建议用于对话）至少需要：
+
+```json
+{
+  "channels": {
+    "lark": {
+      "enabled": true,
+      "allowFrom": ["*"],
+      "appId": "<feishu-app-id>",
+      "appSecret": "<feishu-app-secret>",
+      "verifyToken": "<event-subscription-token>"
+    }
+  }
+}
+```
+
+Feishu/Lark 额外字段（可选）：
+
+- `webhook` / `webhookUrl` / `url` / `botKey`：Webhook 出站通道（不按 `chat_id`）
+- `secret` / `signSecret`：签名密钥
+- `apiBase`：仅在使用 `botKey` 时生效，默认 `https://open.feishu.cn`
+- `verifyToken`：事件订阅 token
+- `callbackListen`：本地监听地址（默认 `0.0.0.0:19820`）
+- `callbackPath`：回调路径（默认 `/feishu/events`）
 
 ## 工作区与数据
 
