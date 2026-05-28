@@ -5,6 +5,7 @@ pub mod cron;
 pub mod heartbeat;
 pub mod provider;
 pub mod task;
+pub mod text;
 pub mod tool_name;
 pub mod tools;
 
