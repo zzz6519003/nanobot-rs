@@ -31,7 +31,7 @@
 ## 当前能力状态
 
 - **Provider**：`anthropic`、`openai`、`custom`、任意自定义键（HashMap）
-- **Channel**：`CLI`（可用）、`Telegram`（可用）、`Feishu/Lark`（可用）、`Discord`（占位实现）
+- **Channel**：`CLI`（可用）、`Telegram`（可用）、`Feishu/Lark`（可用）、`Discord`（暂未实现）
 - **运行模式**：`agent`（交互/单轮）与 `gateway`（渠道 + 调度 + 心跳）
 
 ## 文档

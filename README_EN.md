@@ -31,7 +31,7 @@ The early implementation of this project referenced:
 ## Current Capability Status
 
 - **Providers**: `anthropic`, `openai`, `custom`, plus arbitrary custom provider keys (HashMap-based)
-- **Channels**: `CLI` (available), `Telegram` (available), `Feishu/Lark` (available), `Discord` (placeholder)
+- **Channels**: `CLI` (available), `Telegram` (available), `Feishu/Lark` (available), `Discord` (not implemented yet)
 - **Run modes**: `agent` (interactive/single-shot) and `gateway` (channels + scheduler + heartbeat)
 
 ## Documentation

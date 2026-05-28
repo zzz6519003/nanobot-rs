@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -14,6 +15,7 @@ use hmac::{Hmac, Mac};
 use open_lark::Config as OpenLarkConfig;
 use open_lark::ws_client::{EventDispatcherHandler, LarkWsClient};
 use reqwest::Client;
+use reqwest::multipart::{Form, Part};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::Sha256;
@@ -144,6 +146,12 @@ struct FeishuApiResponse<T> {
 struct FeishuSendMessageData {
     #[serde(default)]
     message_id: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct FeishuUploadImageData {
+    #[serde(default)]
+    image_key: Option<String>,
 }
 
 pub struct FeishuChannel {
@@ -444,6 +452,17 @@ impl FeishuChannel {
         content: &str,
         access_token: &str,
     ) -> ChannelResult<String> {
+        self.send_im_message_by_app_with_token(receive_id, "text", content, access_token)
+            .await
+    }
+
+    async fn send_im_message_by_app_with_token(
+        &self,
+        receive_id: &str,
+        msg_type: &str,
+        content: &str,
+        access_token: &str,
+    ) -> ChannelResult<String> {
         let url = format!(
             "{}/open-apis/im/v1/messages",
             self.api_base.trim_end_matches('/')
@@ -455,13 +474,16 @@ impl FeishuChannel {
             .bearer_auth(access_token)
             .json(&json!({
                 "receive_id": receive_id,
-                "msg_type": "text",
+                "msg_type": msg_type,
                 "content": content,
             }))
             .send()
             .await
             .map_err(|err| {
-                ChannelError::adapter("feishu", format!("send app message request failed: {err}"))
+                ChannelError::adapter(
+                    "feishu",
+                    format!("send app {msg_type} message request failed: {err}"),
+                )
             })?;
 
         let status = response.status();
@@ -471,7 +493,7 @@ impl FeishuChannel {
         if !status.is_success() {
             return Err(ChannelError::adapter(
                 "feishu",
-                format!("send app message http {}: {}", status, body_text),
+                format!("send app {msg_type} message http {}: {}", status, body_text),
             ));
         }
 
@@ -479,14 +501,16 @@ impl FeishuChannel {
             .map_err(|err| {
                 ChannelError::adapter(
                     "feishu",
-                    format!("parse app message response failed: {err}; body={body_text}"),
+                    format!(
+                        "parse app {msg_type} message response failed: {err}; body={body_text}"
+                    ),
                 )
             })?;
         if body.code != 0 {
             return Err(ChannelError::adapter(
                 "feishu",
                 format!(
-                    "send app message rejected: code={} msg={}",
+                    "send app {msg_type} message rejected: code={} msg={}",
                     body.code,
                     body.msg.unwrap_or_else(|| body_text.clone())
                 ),
@@ -497,6 +521,245 @@ impl FeishuChannel {
             .data
             .and_then(|data| data.message_id)
             .unwrap_or_default())
+    }
+
+    async fn send_image_by_app(&self, receive_id: &str, media_ref: &str) -> ChannelResult<String> {
+        let mut last_err: Option<ChannelError> = None;
+        for attempt in 0..2 {
+            let token = if attempt == 0 {
+                self.tenant_access_token().await?
+            } else {
+                self.refresh_tenant_access_token().await?
+            };
+            match self
+                .send_image_by_app_with_token(receive_id, media_ref, &token)
+                .await
+            {
+                Ok(message_id) => return Ok(message_id),
+                Err(err) if attempt == 0 && is_retryable_auth_send_error(&err) => {
+                    warn!(
+                        target: LOG_TARGET,
+                        "feishu app image send failed with cached token, refreshing tenant token and retrying: {}",
+                        err
+                    );
+                    last_err = Some(err);
+                }
+                Err(err) => return Err(err),
+            }
+        }
+
+        Err(last_err.unwrap_or_else(|| {
+            ChannelError::adapter("feishu", "send app image message failed after retry")
+        }))
+    }
+
+    async fn send_image_by_app_with_token(
+        &self,
+        receive_id: &str,
+        media_ref: &str,
+        access_token: &str,
+    ) -> ChannelResult<String> {
+        let image_key = if let Some(image_key) = extract_feishu_image_key_ref(media_ref) {
+            image_key.to_string()
+        } else {
+            self.upload_image_and_get_key(media_ref, access_token)
+                .await?
+        };
+        let content = serde_json::to_string(&json!({ "image_key": image_key })).map_err(|err| {
+            ChannelError::adapter(
+                "feishu",
+                format!("serialize image message content failed: {err}; media={media_ref}"),
+            )
+        })?;
+        self.send_im_message_by_app_with_token(receive_id, "image", &content, access_token)
+            .await
+    }
+
+    async fn upload_image_and_get_key(
+        &self,
+        media_ref: &str,
+        access_token: &str,
+    ) -> ChannelResult<String> {
+        let (image_bytes, file_name, mime_type) = self.resolve_image(media_ref).await?;
+        let file_part = Part::bytes(image_bytes)
+            .file_name(file_name)
+            .mime_str(&mime_type)
+            .map_err(|err| {
+                ChannelError::adapter(
+                    "feishu",
+                    format!("invalid image mime type '{mime_type}': {err}"),
+                )
+            })?;
+        let form = Form::new()
+            .text("image_type", "message")
+            .part("image", file_part);
+
+        let upload_url = format!(
+            "{}/open-apis/im/v1/images",
+            self.api_base.trim_end_matches('/')
+        );
+        let upload_response = self
+            .client
+            .post(upload_url)
+            .bearer_auth(access_token)
+            .multipart(form)
+            .send()
+            .await
+            .map_err(|err| {
+                ChannelError::adapter(
+                    "feishu",
+                    format!("upload image request failed: {err}; media={media_ref}"),
+                )
+            })?;
+        let upload_status = upload_response.status();
+        let upload_body_text = upload_response.text().await.map_err(|err| {
+            ChannelError::adapter(
+                "feishu",
+                format!("read image upload response failed: {err}"),
+            )
+        })?;
+        if !upload_status.is_success() {
+            return Err(ChannelError::adapter(
+                "feishu",
+                format!(
+                    "upload image http {}: {}; media={}",
+                    upload_status, upload_body_text, media_ref
+                ),
+            ));
+        }
+        let upload_body: FeishuApiResponse<FeishuUploadImageData> =
+            serde_json::from_str(&upload_body_text).map_err(|err| {
+                ChannelError::adapter(
+                    "feishu",
+                    format!("parse image upload response failed: {err}; body={upload_body_text}"),
+                )
+            })?;
+        if upload_body.code != 0 {
+            return Err(ChannelError::adapter(
+                "feishu",
+                format!(
+                    "upload image rejected: code={} msg={}; media={}",
+                    upload_body.code,
+                    upload_body.msg.unwrap_or_else(|| upload_body_text.clone()),
+                    media_ref
+                ),
+            ));
+        }
+        upload_body
+            .data
+            .and_then(|data| data.image_key)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                ChannelError::adapter(
+                    "feishu",
+                    format!("image upload response missing image_key; media={media_ref}"),
+                )
+            })
+    }
+
+    async fn resolve_image(&self, media_ref: &str) -> ChannelResult<(Vec<u8>, String, String)> {
+        if media_ref.starts_with("http://") || media_ref.starts_with("https://") {
+            return self.resolve_image_from_url(media_ref).await;
+        }
+        self.resolve_image_from_file(media_ref).await
+    }
+
+    async fn resolve_image_from_url(
+        &self,
+        media_ref: &str,
+    ) -> ChannelResult<(Vec<u8>, String, String)> {
+        let response = self.client.get(media_ref).send().await.map_err(|err| {
+            ChannelError::adapter(
+                "feishu",
+                format!("download image failed: {err}; media={media_ref}"),
+            )
+        })?;
+        let status = response.status();
+        if !status.is_success() {
+            return Err(ChannelError::adapter(
+                "feishu",
+                format!("download image http {}: media={}", status, media_ref),
+            ));
+        }
+        let header_mime = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .map(|value| {
+                value
+                    .split(';')
+                    .next()
+                    .unwrap_or(value)
+                    .trim()
+                    .to_ascii_lowercase()
+            });
+        let bytes = response.bytes().await.map_err(|err| {
+            ChannelError::adapter(
+                "feishu",
+                format!("read downloaded image bytes failed: {err}; media={media_ref}"),
+            )
+        })?;
+        if bytes.is_empty() {
+            return Err(ChannelError::adapter(
+                "feishu",
+                format!("downloaded image is empty; media={media_ref}"),
+            ));
+        }
+
+        let file_name = infer_file_name(media_ref);
+        let inferred_mime = infer_image_mime_from_name(&file_name);
+        let mime = match header_mime {
+            Some(value) if value.starts_with("image/") => value,
+            Some(value) if inferred_mime.is_some() => {
+                inferred_mime.unwrap_or("image/jpeg").to_string()
+            }
+            Some(value) => {
+                return Err(ChannelError::adapter(
+                    "feishu",
+                    format!(
+                        "downloaded content-type is not image ('{}'); media={}",
+                        value, media_ref
+                    ),
+                ));
+            }
+            None => inferred_mime.unwrap_or("image/jpeg").to_string(),
+        };
+        Ok((bytes.to_vec(), file_name, mime))
+    }
+
+    async fn resolve_image_from_file(
+        &self,
+        media_ref: &str,
+    ) -> ChannelResult<(Vec<u8>, String, String)> {
+        let path = Path::new(media_ref);
+        let bytes = tokio::fs::read(path).await.map_err(|err| {
+            ChannelError::adapter(
+                "feishu",
+                format!("read local image file failed: {err}; media={media_ref}"),
+            )
+        })?;
+        if bytes.is_empty() {
+            return Err(ChannelError::adapter(
+                "feishu",
+                format!("local image file is empty; media={media_ref}"),
+            ));
+        }
+        let file_name = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .map(ToString::to_string)
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| "image.jpg".to_string());
+        let mime = infer_image_mime_from_name(&file_name).ok_or_else(|| {
+            ChannelError::adapter(
+                "feishu",
+                format!(
+                    "unsupported local image extension; media={media_ref} (supported: png/jpg/jpeg/gif/webp/bmp/tif/tiff/heic/heif)"
+                ),
+            )
+        })?;
+
+        Ok((bytes, file_name, mime.to_string()))
     }
 
     async fn tenant_access_token(&self) -> ChannelResult<String> {
@@ -837,19 +1100,33 @@ impl ChannelAdapter for FeishuChannel {
 
     async fn send(&self, msg: OutboundMessage) -> ChannelResult<SendOutcome> {
         let text = msg.content.trim();
-        if text.is_empty() {
+        if text.is_empty() && msg.media.is_empty() {
             return Ok(SendOutcome::default());
+        }
+        if !msg.media.is_empty() && self.app_id.is_none() {
+            return Err(ChannelError::adapter(
+                "feishu",
+                "sending image media requires appId/appSecret mode (webhook mode only supports text)",
+            ));
         }
 
         let mut last_message_id: Option<String> = None;
-        for chunk in split_text(text, FEISHU_TEXT_LIMIT) {
-            if self.app_id.is_some() {
-                let message_id = self.send_message_by_app(&msg.chat_id, &chunk).await?;
-                if !message_id.is_empty() {
-                    last_message_id = Some(message_id);
+        if !text.is_empty() {
+            for chunk in split_text(text, FEISHU_TEXT_LIMIT) {
+                if self.app_id.is_some() {
+                    let message_id = self.send_message_by_app(&msg.chat_id, &chunk).await?;
+                    if !message_id.is_empty() {
+                        last_message_id = Some(message_id);
+                    }
+                } else {
+                    self.send_message_by_webhook(&chunk).await?;
                 }
-            } else {
-                self.send_message_by_webhook(&chunk).await?;
+            }
+        }
+        for media_ref in &msg.media {
+            let message_id = self.send_image_by_app(&msg.chat_id, media_ref).await?;
+            if !message_id.is_empty() {
+                last_message_id = Some(message_id);
             }
         }
         Ok(SendOutcome {
@@ -960,7 +1237,8 @@ fn extract_inbound_message(
     let Some(message) = event.message.as_ref() else {
         return Ok(None);
     };
-    if message.message_type.as_deref() != Some("text") {
+    let message_type = message.message_type.as_deref().unwrap_or_default();
+    if message_type != "text" && message_type != "image" {
         return Ok(None);
     }
 
@@ -996,15 +1274,32 @@ fn extract_inbound_message(
         .ok_or_else(|| ChannelError::adapter("feishu", "missing content"))?;
     let content_value: serde_json::Value = serde_json::from_str(content_json)
         .map_err(|err| ChannelError::adapter("feishu", format!("invalid content json: {}", err)))?;
-    let text = content_value
-        .get("text")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default()
-        .trim()
-        .to_string();
-    if text.is_empty() {
-        return Ok(None);
-    }
+    let (text, media) = if message_type == "text" {
+        let text = content_value
+            .get("text")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        if text.is_empty() {
+            return Ok(None);
+        }
+        (text, Vec::new())
+    } else {
+        let image_key = content_value
+            .get("image_key")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        if image_key.is_empty() {
+            return Ok(None);
+        }
+        (
+            format!("[image: {}]", image_key),
+            vec![format!("feishu:image_key:{}", image_key)],
+        )
+    };
 
     Ok(Some(InboundMessage {
         channel: "feishu".to_string(),
@@ -1012,7 +1307,7 @@ fn extract_inbound_message(
         chat_id,
         content: text.into(),
         timestamp: chrono::Utc::now(),
-        media: Vec::new(),
+        media,
         metadata: MessageMetadata {
             message_id: Some(MessageId::External(message_id)),
             stream_id: None,
@@ -1050,6 +1345,51 @@ fn normalize_path(path: &str) -> String {
         return path.to_string();
     }
     format!("/{}", path)
+}
+
+fn infer_file_name(input: &str) -> String {
+    let source = input.split('?').next().unwrap_or(input);
+    if source.ends_with('/') {
+        return "image.jpg".to_string();
+    }
+    let source = source.trim_end_matches('/');
+    if let Some(index) = source.find("://") {
+        let remainder = &source[index + 3..];
+        if !remainder.contains('/') {
+            return "image.jpg".to_string();
+        }
+    }
+    let name = source.rsplit('/').next().unwrap_or("image.jpg");
+    if name.is_empty() {
+        "image.jpg".to_string()
+    } else {
+        name.to_string()
+    }
+}
+
+fn extract_feishu_image_key_ref(media_ref: &str) -> Option<&str> {
+    media_ref
+        .strip_prefix("feishu:image_key:")
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn infer_image_mime_from_name(name: &str) -> Option<&'static str> {
+    let ext = Path::new(name)
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase());
+    match ext.as_deref() {
+        Some("png") => Some("image/png"),
+        Some("jpg") | Some("jpeg") => Some("image/jpeg"),
+        Some("gif") => Some("image/gif"),
+        Some("webp") => Some("image/webp"),
+        Some("bmp") => Some("image/bmp"),
+        Some("tif") | Some("tiff") => Some("image/tiff"),
+        Some("heic") => Some("image/heic"),
+        Some("heif") => Some("image/heif"),
+        _ => None,
+    }
 }
 
 fn split_text(text: &str, max_len: usize) -> Vec<String> {
@@ -1223,6 +1563,66 @@ mod tests {
         let channel = FeishuChannel::new(cfg, MessageBus::new()).expect("feishu channel");
         assert!(channel.stream_placeholder_enabled);
         assert_eq!(channel.stream_placeholder_text, "处理中...");
+    }
+
+    #[test]
+    fn infer_file_name_from_url_or_path() {
+        assert_eq!(
+            infer_file_name("https://example.com/assets/pic.png?x=1"),
+            "pic.png"
+        );
+        assert_eq!(infer_file_name("/tmp/demo.jpg"), "demo.jpg");
+        assert_eq!(infer_file_name("https://example.com/"), "image.jpg");
+    }
+
+    #[test]
+    fn infer_image_mime_from_name_supports_common_extensions() {
+        assert_eq!(infer_image_mime_from_name("a.png"), Some("image/png"));
+        assert_eq!(infer_image_mime_from_name("a.JPG"), Some("image/jpeg"));
+        assert_eq!(infer_image_mime_from_name("a.webp"), Some("image/webp"));
+        assert_eq!(infer_image_mime_from_name("a.txt"), None);
+    }
+
+    #[test]
+    fn extract_feishu_image_key_ref_works() {
+        assert_eq!(
+            extract_feishu_image_key_ref("feishu:image_key:img_123"),
+            Some("img_123")
+        );
+        assert_eq!(
+            extract_feishu_image_key_ref("https://example.com/a.png"),
+            None
+        );
+    }
+
+    #[test]
+    fn extract_inbound_message_supports_image_event() {
+        let payload: FeishuIncomingEnvelope = serde_json::from_value(json!({
+            "header": {
+                "event_type": "im.message.receive_v1"
+            },
+            "event": {
+                "sender": {
+                    "sender_id": {
+                        "open_id": "ou_test"
+                    }
+                },
+                "message": {
+                    "message_id": "om_test",
+                    "chat_id": "oc_test",
+                    "message_type": "image",
+                    "content": "{\"image_key\":\"img_v3_test\"}"
+                }
+            }
+        }))
+        .expect("parse payload");
+        let inbound =
+            extract_inbound_message(&payload, &["*".to_string()]).expect("extract inbound");
+        let inbound = inbound.expect("image inbound exists");
+        assert_eq!(inbound.channel, "feishu");
+        assert_eq!(inbound.chat_id, "oc_test");
+        assert_eq!(inbound.content_text(), "[image: img_v3_test]");
+        assert_eq!(inbound.media, vec!["feishu:image_key:img_v3_test"]);
     }
 
     #[tokio::test]

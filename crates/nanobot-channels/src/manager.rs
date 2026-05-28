@@ -10,8 +10,6 @@ use crate::cli::CliChannel;
 use crate::error::{ChannelError, ChannelResult};
 #[cfg(feature = "channel-feishu")]
 use crate::feishu::FeishuChannel;
-#[cfg(feature = "channel-discord")]
-use crate::placeholder::PlaceholderChannel;
 #[cfg(feature = "channel-telegram")]
 use crate::telegram::TelegramChannel;
 use nanobot_bus::{MessageBus, OutboundMessage};
@@ -281,10 +279,13 @@ fn feishu_factory() -> Option<ChannelFactory> {
 
 #[cfg(feature = "channel-discord")]
 fn build_discord_channel(
-    _cfg: GenericChannelConfig,
+    cfg: GenericChannelConfig,
     _bus: MessageBus,
 ) -> ChannelResult<Arc<dyn ChannelAdapter>> {
-    Ok(Arc::new(PlaceholderChannel::new("discord")))
+    Err(ChannelError::config(format!(
+        "discord channel is enabled but not implemented yet; disable channels.discord (allowFrom={:?})",
+        cfg.allow_from
+    )))
 }
 
 #[cfg(feature = "channel-discord")]

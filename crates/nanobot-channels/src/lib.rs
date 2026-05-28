@@ -1,4 +1,4 @@
-//! Channel adapters for nanobot: CLI, Telegram, and placeholder adapters,
+//! Channel adapters for nanobot (e.g. CLI, Telegram, Feishu),
 //! plus the `ChannelManager` that wires them to the `MessageBus`.
 
 pub mod base;
@@ -7,7 +7,6 @@ pub mod error;
 #[cfg(feature = "channel-feishu")]
 pub mod feishu;
 pub mod manager;
-pub mod placeholder;
 #[cfg(feature = "channel-telegram")]
 pub mod telegram;
 
