@@ -6,18 +6,21 @@ use async_trait::async_trait;
 use regex::Regex;
 use serde_json::json;
 use tokio::process::Command;
+use tracing::{info, warn};
 
 use crate::error::{ToolError, ToolResult};
 use crate::tool_error;
 
 use crate::base::{Tool, ToolContext, ToolDefinition, parse_args, tool_definition_from_json};
 use crate::config::SharedToolConfig;
+use nanobot_types::text::truncate_utf8_in_place;
 use nanobot_types::tools::ExecArgs;
 
 // Tool descriptions
 const EXEC_DESC: &str = "Execute a shell command and return its output. Use with caution.";
 const EXEC_COMMAND_DESC: &str = "The shell command to execute";
 const EXEC_WORKING_DIR_DESC: &str = "Optional working directory for the command";
+const TARGET: &str = "nanobot::tools::exec";
 
 pub struct ShellTool {
     config: SharedToolConfig,
@@ -119,6 +122,7 @@ pub async fn execute(
     let (program, shell_args) = platform_shell(&command);
     let mut cmd = Command::new(program);
     cmd.args(shell_args).current_dir(&cwd);
+    cmd.kill_on_drop(true);
 
     if !path_append.trim().is_empty() {
         let old_path = std::env::var("PATH").unwrap_or_default();
@@ -127,6 +131,7 @@ pub async fn execute(
 
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
+    cmd.stdin(std::process::Stdio::null());
 
     let child = match cmd.spawn() {
         Ok(c) => c,
@@ -134,6 +139,14 @@ pub async fn execute(
             return Err(tool_error!("exec", "executing command: {}", e));
         }
     };
+
+    info!(
+        target: TARGET,
+        command = %command,
+        cwd = %cwd.display(),
+        timeout_secs,
+        "exec tool started command"
+    );
 
     let output = match tokio::time::timeout(
         std::time::Duration::from_secs(timeout_secs),
@@ -151,9 +164,21 @@ pub async fn execute(
             }
         },
         Err(_) => {
+            warn!(
+                target: TARGET,
+                command = %command,
+                cwd = %cwd.display(),
+                timeout_secs,
+                "exec tool timed out"
+            );
             return Err(ToolError::execution(
                 "exec",
-                anyhow::anyhow!("command timed out after {} seconds", timeout_secs),
+                anyhow::anyhow!(
+                    "command timed out after {} seconds (cwd={}, command={})",
+                    timeout_secs,
+                    cwd.display(),
+                    command
+                ),
             ));
         }
     };
@@ -183,25 +208,11 @@ pub async fn execute(
 
     const MAX_LEN: usize = 10_000;
     if result.len() > MAX_LEN {
-        let remaining = truncate_utf8(&mut result, MAX_LEN);
+        let remaining = truncate_utf8_in_place(&mut result, MAX_LEN);
         result.push_str(&format!("\n... (truncated, {} more bytes)", remaining));
     }
 
     Ok(result)
-}
-
-fn truncate_utf8(value: &mut String, max_len: usize) -> usize {
-    if value.len() <= max_len {
-        return 0;
-    }
-
-    let mut boundary = max_len.min(value.len());
-    while boundary > 0 && !value.is_char_boundary(boundary) {
-        boundary -= 1;
-    }
-    let remaining = value.len() - boundary;
-    value.truncate(boundary);
-    remaining
 }
 
 fn platform_shell(command: &str) -> (&'static str, Vec<&str>) {
@@ -472,7 +483,7 @@ mod tests {
     #[test]
     fn truncate_utf8_respects_char_boundaries() {
         let mut value = "hello你好世界".to_string();
-        let remaining = truncate_utf8(&mut value, 8);
+        let remaining = truncate_utf8_in_place(&mut value, 8);
         assert_eq!(value, "hello你");
         assert_eq!(remaining, "好世界".len());
     }
