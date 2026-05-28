@@ -33,7 +33,7 @@ impl Throttle {
         let len_delta = current_len.saturating_sub(self.last_sent_len);
         let time_ok = now.duration_since(self.last_sent_at) >= self.min_interval;
         let size_ok = len_delta >= self.min_chars;
-        time_ok || size_ok
+        time_ok && size_ok
     }
 
     pub fn mark_sent(&mut self, current_len: usize) {
@@ -44,6 +44,11 @@ impl Throttle {
     pub fn reset(&mut self) {
         self.last_sent_at = Instant::now();
         self.last_sent_len = 0;
+    }
+
+    /// Returns the content length at last successful send.
+    pub fn last_sent_len(&self) -> usize {
+        self.last_sent_len
     }
 }
 

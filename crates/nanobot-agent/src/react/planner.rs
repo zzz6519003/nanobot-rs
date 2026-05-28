@@ -135,7 +135,7 @@ impl Planner {
 
         if let Some(progress) = progress {
             let content = progress_state.content();
-            if !content.is_empty() && progress_throttle.should_send(content.len()) {
+            if !content.is_empty() && content.len() != progress_throttle.last_sent_len() {
                 progress.send_progress(&content);
             }
         }
