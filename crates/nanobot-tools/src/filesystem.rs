@@ -445,10 +445,7 @@ async fn list_dir(
     let metadata = match async_fs::metadata(&resolved).await {
         Ok(meta) => meta,
         Err(err) if err.kind() == io::ErrorKind::NotFound => {
-            return Err(ToolError::execution(
-                "list_dir",
-                anyhow::anyhow!("directory not found: {}", path),
-            ));
+            return Ok(format!("Directory not found: {}", path));
         }
         Err(err) => {
             return Err(ToolError::execution(

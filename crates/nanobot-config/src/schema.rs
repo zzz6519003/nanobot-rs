@@ -756,6 +756,10 @@ pub struct ExecToolConfig {
     pub timeout: u64,
     /// PATH suffix to add for exec tool.
     pub path_append: String,
+    /// Disable dangerous-command pattern checks for exec.
+    pub disable_safety_guard: bool,
+    /// Disable all exec guards, including workspace/path checks.
+    pub disable_all_guards: bool,
 }
 
 impl Default for ExecToolConfig {
@@ -763,6 +767,8 @@ impl Default for ExecToolConfig {
         Self {
             timeout: 60,
             path_append: String::new(),
+            disable_safety_guard: false,
+            disable_all_guards: false,
         }
     }
 }

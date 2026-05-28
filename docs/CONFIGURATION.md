@@ -8,6 +8,7 @@
 - 加载函数：`nanobot_config::load_config`
 - 若文件不存在或解析失败：回退到 `Config::default()`
 - 支持环境变量替换：`{{ENV_VAR}}` 形式会在解析前替换
+- 支持 JSONC 风格注释：`// ...` 与 `/* ... */`
 
 示例：
 
@@ -218,6 +219,8 @@ Feishu/Lark 额外字段：
 - `web.search.maxResults`: 默认 `5`，需 `> 0`
 - `exec.timeout`: 默认 `60`（秒），需 `> 0`
 - `exec.pathAppend`: 追加到 PATH
+- `exec.disableSafetyGuard`: 是否关闭危险命令模式防护，默认 `false`
+- `exec.disableAllGuards`: 是否关闭 exec 的全部防护（包括 workspace/path 检查），默认 `false`
 - `restrictToWorkspace`: 是否限制文件工具在 workspace 内
 - `mcpServers`: MCP server 定义（每个 server 需至少提供 `command` 或 `url`）
 

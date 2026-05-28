@@ -27,6 +27,8 @@ pub struct ExecConfig {
     pub timeout_secs: u64,
     pub path_append: String,
     pub restrict_to_workspace: bool,
+    pub disable_safety_guard: bool,
+    pub disable_all_guards: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -57,6 +59,8 @@ impl SharedToolConfig {
                     timeout_secs: exec_config.timeout,
                     path_append: exec_config.path_append,
                     restrict_to_workspace,
+                    disable_safety_guard: exec_config.disable_safety_guard,
+                    disable_all_guards: exec_config.disable_all_guards,
                 },
                 web: WebConfig {
                     search_api_key: web_config.search.api_key,
@@ -89,6 +93,8 @@ impl SharedToolConfig {
         let mut guard = self.inner.write();
         guard.exec.timeout_secs = config.timeout;
         guard.exec.path_append = config.path_append;
+        guard.exec.disable_safety_guard = config.disable_safety_guard;
+        guard.exec.disable_all_guards = config.disable_all_guards;
     }
 
     pub async fn update_web_config(&self, config: WebToolsConfig) {
@@ -172,10 +178,14 @@ mod tests {
             .update_exec_config(ExecToolConfig {
                 timeout: 120,
                 path_append: String::new(),
+                disable_safety_guard: true,
+                disable_all_guards: true,
             })
             .await;
         let snapshot = config.snapshot().await;
         assert_eq!(snapshot.exec.timeout_secs, 120);
+        assert!(snapshot.exec.disable_safety_guard);
+        assert!(snapshot.exec.disable_all_guards);
     }
 
     #[tokio::test]

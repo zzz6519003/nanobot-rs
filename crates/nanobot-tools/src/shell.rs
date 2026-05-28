@@ -74,6 +74,8 @@ impl Tool for ShellTool {
             snapshot.allowed_dir.as_deref(),
             snapshot.exec.timeout_secs,
             snapshot.exec.restrict_to_workspace,
+            snapshot.exec.disable_safety_guard,
+            snapshot.exec.disable_all_guards,
             &snapshot.exec.path_append,
         )
         .await
@@ -86,6 +88,8 @@ pub async fn execute(
     allowed_dir: Option<&Path>,
     timeout_secs: u64,
     restrict_to_workspace: bool,
+    disable_safety_guard: bool,
+    disable_all_guards: bool,
     path_append: &str,
 ) -> ToolResult<String> {
     let typed = parse_args::<ExecArgs>(args_json)?;
@@ -100,7 +104,14 @@ pub async fn execute(
         },
     )?;
 
-    guard_command(&command, &cwd, allowed_dir, restrict_to_workspace)?;
+    guard_command(
+        &command,
+        &cwd,
+        allowed_dir,
+        restrict_to_workspace,
+        disable_safety_guard,
+        disable_all_guards,
+    )?;
 
     // Keep the tool contract stable across platforms by always executing
     // through the platform-default non-interactive shell.
@@ -230,7 +241,13 @@ fn guard_command(
     cwd: &Path,
     allowed_dir: Option<&Path>,
     restrict_to_workspace: bool,
+    disable_safety_guard: bool,
+    disable_all_guards: bool,
 ) -> ToolResult<()> {
+    if disable_all_guards {
+        return Ok(());
+    }
+
     let deny_patterns = [
         r"\brm\s+-[rf]{1,2}\b",
         r"\bdel\s+/[fq]\b",
@@ -243,18 +260,20 @@ fn guard_command(
         r":\(\)\s*\{.*\};\s*:",
     ];
 
-    let lower = command.to_lowercase();
-    for p in deny_patterns {
-        // Pattern-based hard block for obviously destructive commands.
-        if Regex::new(p)
-            .ok()
-            .map(|r| r.is_match(&lower))
-            .unwrap_or(false)
-        {
-            return Err(ToolError::execution(
-                "exec",
-                anyhow::anyhow!("command blocked by safety guard (dangerous pattern detected)"),
-            ));
+    if !disable_safety_guard {
+        let lower = command.to_lowercase();
+        for p in deny_patterns {
+            // Pattern-based hard block for obviously destructive commands.
+            if Regex::new(p)
+                .ok()
+                .map(|r| r.is_match(&lower))
+                .unwrap_or(false)
+            {
+                return Err(ToolError::execution(
+                    "exec",
+                    anyhow::anyhow!("command blocked by safety guard (dangerous pattern detected)"),
+                ));
+            }
         }
     }
 
@@ -393,7 +412,7 @@ mod tests {
     #[test]
     fn guard_blocks_path_traversal_when_restricted() {
         let cwd = std::path::PathBuf::from("/tmp");
-        let blocked = guard_command("cat ../secret.txt", &cwd, Some(&cwd), true);
+        let blocked = guard_command("cat ../secret.txt", &cwd, Some(&cwd), true, false, false);
         assert!(blocked.is_err());
         assert!(
             blocked
@@ -407,7 +426,21 @@ mod tests {
     #[test]
     fn guard_allows_safe_command() {
         let cwd = std::path::PathBuf::from("/tmp");
-        let blocked = guard_command("echo hello", &cwd, None, false);
+        let blocked = guard_command("echo hello", &cwd, None, false, false, false);
+        assert!(blocked.is_ok());
+    }
+
+    #[test]
+    fn guard_allows_dangerous_pattern_when_safety_guard_disabled() {
+        let cwd = std::path::PathBuf::from("/tmp");
+        let blocked = guard_command("rm -rf build", &cwd, None, false, true, false);
+        assert!(blocked.is_ok());
+    }
+
+    #[test]
+    fn guard_allows_all_when_all_guards_disabled() {
+        let cwd = std::path::PathBuf::from("/tmp");
+        let blocked = guard_command("cat ../secret.txt", &cwd, Some(&cwd), true, false, true);
         assert!(blocked.is_ok());
     }
 
