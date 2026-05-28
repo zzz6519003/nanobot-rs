@@ -1,14 +1,13 @@
 //! Model query and response parsing for ReAct loop
 
 use futures::StreamExt;
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, trace};
 
 use super::TARGET;
 use crate::error::{AgentError, AgentResult};
-use crate::utils::{Throttle, truncate_text};
+use crate::utils::Throttle;
 use nanobot_bus::{MessageBus, MessageId, MessageMetadata, OutboundMessage};
 use nanobot_provider::streaming::{StreamAccumulator, StreamError, StreamEvent};
 use nanobot_provider::{ChatRequest, LLMProvider};
@@ -19,9 +18,6 @@ use nanobot_types::provider::{
 
 const PROGRESS_MIN_CHARS: usize = 24;
 const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(500);
-const TOOL_HINT_MIN_CHARS: usize = 24;
-const TOOL_HINT_MIN_INTERVAL: Duration = Duration::from_millis(500);
-const TOOL_HINT_MAX_CHARS: usize = 480;
 const STREAM_SETUP_TIMEOUT: Duration = Duration::from_secs(60);
 const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(90);
 
@@ -88,7 +84,6 @@ impl Planner {
 
         let mut accumulator = StreamAccumulator::new();
         let mut progress_state = ProgressState::new();
-        let mut tool_hint_state = ToolHintState::new();
         let mut saw_event = false;
         let mut progress_throttle = Throttle::new(PROGRESS_MIN_CHARS, PROGRESS_MIN_INTERVAL);
         let mut done_response = None;
@@ -119,30 +114,9 @@ impl Planner {
                         config.model, config.iteration, message
                     )));
                 }
-                StreamEvent::ToolCallStart { id, name, index } => {
+                StreamEvent::ToolCallStart { name, .. } => {
                     if let Some(progress) = progress {
-                        progress.send_tool_hint(&format!(
-                            "Tool call started: {} (id={}, index={})",
-                            name, id, index
-                        ));
-                    }
-                }
-                StreamEvent::ToolCallArgumentsDelta {
-                    id,
-                    arguments_json,
-                    index,
-                } => {
-                    if let Some(progress) = progress
-                        && let Some(hint) = tool_hint_state.update_args(id, arguments_json, *index)
-                    {
-                        progress.send_tool_hint(&hint);
-                    }
-                }
-                StreamEvent::ToolCallEnd { id, index } => {
-                    if let Some(progress) = progress
-                        && let Some(hint) = tool_hint_state.finish_call(id, *index)
-                    {
-                        progress.send_tool_hint(&hint);
+                        progress.send_tool_hint(&format!("Using: {}", name));
                     }
                 }
                 _ => {}
@@ -303,69 +277,6 @@ fn map_stream_error(err: StreamError, model: &str, iteration: usize) -> AgentErr
         "provider stream error (model='{}', iteration={}): {}",
         model, iteration, err
     ))
-}
-
-struct ToolHintState {
-    calls: HashMap<String, ToolHintCall>,
-}
-
-struct ToolHintCall {
-    args: String,
-    throttle: Throttle,
-    index: usize,
-}
-
-impl ToolHintState {
-    fn new() -> Self {
-        Self {
-            calls: HashMap::new(),
-        }
-    }
-
-    fn update_args(&mut self, id: &str, delta: &str, index: usize) -> Option<String> {
-        let entry = self
-            .calls
-            .entry(id.to_string())
-            .or_insert_with(|| ToolHintCall {
-                args: String::new(),
-                throttle: Throttle::new(TOOL_HINT_MIN_CHARS, TOOL_HINT_MIN_INTERVAL),
-                index,
-            });
-
-        entry.args.push_str(delta);
-
-        if !entry.throttle.should_send(entry.args.len()) {
-            return None;
-        }
-
-        entry.throttle.mark_sent(entry.args.len());
-
-        Some(format!(
-            "Tool call args (id={}, index={}): {}",
-            id,
-            entry.index,
-            truncate_text(&entry.args, TOOL_HINT_MAX_CHARS)
-        ))
-    }
-
-    fn finish_call(&mut self, id: &str, index: usize) -> Option<String> {
-        let args = self
-            .calls
-            .remove(id)
-            .map(|call| call.args)
-            .unwrap_or_default();
-
-        if args.is_empty() {
-            Some(format!("Tool call ready: id={}, index={}", id, index))
-        } else {
-            Some(format!(
-                "Tool call ready: id={}, index={}, args={}",
-                id,
-                index,
-                truncate_text(&args, TOOL_HINT_MAX_CHARS)
-            ))
-        }
-    }
 }
 
 /// Configuration for model query
