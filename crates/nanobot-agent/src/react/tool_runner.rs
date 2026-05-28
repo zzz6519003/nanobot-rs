@@ -1,6 +1,7 @@
 //! Tool execution for ReAct loop
 
 use std::sync::Arc;
+use std::time::Instant;
 use tracing::{debug, warn};
 
 use super::TARGET;
@@ -30,20 +31,33 @@ impl ToolRunner {
             tool_call_id = %tool_call.id,
             "Executing tool"
         );
+        let start = Instant::now();
 
         match self
             .tools
             .execute(tool_call.name.as_str(), &tool_call.arguments_json, context)
             .await
         {
-            Ok(result) => ToolObservation {
-                tool_call_id: tool_call.id.clone(),
-                content: result,
-            },
+            Ok(result) => {
+                debug!(
+                    target: TARGET,
+                    tool_name = %tool_call.name,
+                    tool_call_id = %tool_call.id,
+                    elapsed_ms = start.elapsed().as_millis(),
+                    result_len = result.len(),
+                    "Tool execution completed"
+                );
+                ToolObservation {
+                    tool_call_id: tool_call.id.clone(),
+                    content: result,
+                }
+            }
             Err(err) => {
                 warn!(
                     target: TARGET,
                     tool_name = %tool_call.name,
+                    tool_call_id = %tool_call.id,
+                    elapsed_ms = start.elapsed().as_millis(),
                     error = %err,
                     "Tool execution failed"
                 );

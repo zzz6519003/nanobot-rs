@@ -13,7 +13,9 @@ use nanobot_bus::{MessageBus, MessageId, MessageMetadata, OutboundMessage};
 use nanobot_provider::streaming::{StreamAccumulator, StreamError, StreamEvent};
 use nanobot_provider::{ChatRequest, LLMProvider};
 use nanobot_tools::base::ToolDefinition;
-use nanobot_types::provider::{ChatMessage, ToolCallRequest, UsageStats};
+use nanobot_types::provider::{
+    ChatMessage, ReasoningConfig, ThinkingBlock, ToolCallRequest, UsageStats,
+};
 
 const PROGRESS_MIN_CHARS: usize = 24;
 const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(500);
@@ -61,6 +63,13 @@ impl Planner {
             max_tokens: config.max_tokens,
             reasoning_effort: config.reasoning_effort.clone(),
         };
+
+        // Emit a stream-start progress marker before provider request so channels that
+        // support begin_stream (e.g. Feishu placeholder) can show "thinking" even when
+        // the provider doesn't emit incremental deltas (chat_completions path).
+        if let Some(progress) = progress {
+            progress.send_progress_start();
+        }
 
         let mut stream = tokio::time::timeout(
             STREAM_SETUP_TIMEOUT,
@@ -228,6 +237,20 @@ impl ProgressEmitter {
         });
     }
 
+    pub fn send_progress_start(&self) {
+        let _ = self.bus.publish_outbound(OutboundMessage {
+            channel: self.channel.clone(),
+            chat_id: self.chat_id.clone(),
+            content: String::new(),
+            reply_to: self.reply_to.clone(),
+            media: Vec::new(),
+            metadata: MessageMetadata {
+                message_id: Some(MessageId::Progress),
+                stream_id: Some(self.stream_id.clone()),
+            },
+        });
+    }
+
     pub fn send_tool_hint(&self, content: &str) {
         if content.trim().is_empty() {
             return;
@@ -351,7 +374,7 @@ pub struct ModelConfig {
     pub model: String,
     pub temperature: f32,
     pub max_tokens: i32,
-    pub reasoning_effort: Option<String>,
+    pub reasoning_effort: Option<ReasoningConfig>,
     pub iteration: usize,
 }
 
@@ -362,7 +385,7 @@ pub struct PlannerResponse {
     pub tool_calls: Vec<ToolCallRequest>,
     pub finish_reason: String,
     pub reasoning_content: Option<String>,
-    pub thinking_blocks: Option<Vec<String>>,
+    pub thinking_blocks: Option<Vec<ThinkingBlock>>,
     pub usage: UsageStats,
 }
 
