@@ -27,22 +27,20 @@
       "streamMode": "updateAll"
     },
     "instances": {
-      "lark": {
+      "feishu": {
         "channelType": "feishu",
         "enabled": true,
-        "allowFrom": [
-          "ou_98b3e1bef69556daab471043fecfea52"
-        ],
+        "allowFrom": ["on_ddb9135dc501f3eeeaa7db92479df202"],
         "appId": "cli_aa9d6a89bbb85bb7",
         "appSecret": "W2g0T4ayrKZfAxEjx74uxglwu4ErXKjn",
         "wsEnabled": true,
         "streamPlaceholderEnabled": true,
         "streamPlaceholderText": "思考中..."
       },
-      "nanobot-小助理": {
+      "feishu-2": {
         "channelType": "feishu",
         "enabled": true,
-        "allowFrom": ["ou_98b3e1bef69556daab471043fecfea52"],
+        "allowFrom": ["on_ddb9135dc501f3eeeaa7db92479df202"],
         "appId": "cli_aa9d68fa32f89be9",
         "appSecret": "1K1VMXVsGuFLJ4E3clDj6fnHNIhMcKrY",
         "wsEnabled": true,

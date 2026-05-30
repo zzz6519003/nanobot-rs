@@ -370,6 +370,19 @@ DeepSeek（Anthropic-compatible）示例：
 
 说明：Feishu 启用时至少需要配置 webhook URL 或 `appId+appSecret`。
 
+#### 会话与标识符说明
+
+```text
+飞书事件                    InboundMessage              SessionKey
+──────────────────────────────────────────────────────────────────
+union_id = "on_xxx" ───→  sender_id: "on_xxx"  ──→  allow_from 过滤
+chat_id = "oc_xxx"   ───→  chat_id:   "oc_xxx"   ──→  SessionKey("实例名", "oc_xxx")
+```
+
+- **Session 绑定**：Session key = `实例名:chat_id`。同一飞书群/会话内的所有用户共享一个 Agent session，上下文混合在同一轮对话中。Bot 不区分消息来源用户。
+- **Sender ID 角色**：`sender_id` 使用 **union_id**（跨应用稳定的用户标识），仅用于 `allowFrom` 访问控制，不参与 session 隔离。如需按用户隔离上下文，需额外配置。
+- **Event 接收方式**：WebSocket（默认）和 HTTP Callback 仅影响事件接收，不影响消息发送能力。只要配置了 `appId+appSecret`，发消息走 IM API。
+
 ## 7. tools
 
 - `web.proxy`: 可选 HTTP 代理
