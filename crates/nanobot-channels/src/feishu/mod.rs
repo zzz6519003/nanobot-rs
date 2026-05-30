@@ -1317,7 +1317,7 @@ mod tests {
             "event": {
                 "sender": {
                     "sender_id": {
-                        "open_id": "ou_test"
+                        "union_id": "on_test"
                     }
                 },
                 "message": {

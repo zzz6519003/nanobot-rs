@@ -68,10 +68,14 @@ pub struct FeishuSender {
 
 #[derive(Debug, Deserialize)]
 pub struct FeishuSenderId {
-    #[serde(default)]
-    pub open_id: Option<String>,
+    /// union_id is the stable identifier used across all apps in the same tenant.
+    /// It is preferred over open_id (app-specific) and user_id (may change).
     #[serde(default)]
     pub union_id: Option<String>,
+    /// open_id is intentionally unused for sender identification because it is
+    /// app-specific and differs between bots. Kept for deserialization completeness.
+    #[serde(default)]
+    pub open_id: Option<String>,
     #[serde(default)]
     pub user_id: Option<String>,
 }
