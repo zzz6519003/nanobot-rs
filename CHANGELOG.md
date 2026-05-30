@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 
 <!-- changelog-entries -->
 
+## [v0.0.11] - 2026-05-31
+
+### Added
+- feat(agent): implement /cancel command with message queue clearing ([`aa0509e`](https://github.com/yjhmelody/nanobot-rs/commit/aa0509ebae6da52c70a294c69116dc97528e199b))
+
+### Changed
+- refactor(agent): remove noisy intermediate tool call hints ([`d77191f`](https://github.com/yjhmelody/nanobot-rs/commit/d77191f59fbf0278ad3b8b55ac6255d23dfe9e91))
+
+### Fixed
+- fix(provider): capture input_tokens from message_start SSE event ([`657119a`](https://github.com/yjhmelody/nanobot-rs/commit/657119a71336a8f14f1e0d3e8c9b4c88eb732689))
+- fix(provider): emit usage update alongside finish reason in message_delta ([`77eca3c`](https://github.com/yjhmelody/nanobot-rs/commit/77eca3cc545185650deb0334ff862995776732f4))
+- fix(agent): throttle progress updates only when both time and size thresholds met ([`68b9088`](https://github.com/yjhmelody/nanobot-rs/commit/68b90888623f2ec32ab495e3b553f40705670136))
+
+### Documentation
+- docs: add AI agent development pain points guide ([`8fec3a2`](https://github.com/yjhmelody/nanobot-rs/commit/8fec3a2640eccdfd4b76ed0d207b142af76448c5))
+
+
 ## [v0.0.10] - 2026-05-29
 
 ### Added
