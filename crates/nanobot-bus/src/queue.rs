@@ -75,15 +75,26 @@ impl MessageBus {
                 }
             })
             .unwrap_or("send");
-        info!(
-            target: "nanobot::bus",
-            channel = %msg.channel,
-            chat_id = %msg.chat_id,
-            media = msg.media.len(),
-            msg_type,
-            content_preview = %preview,
-            "outbound message sent"
-        );
+        if msg_type == "progress" || msg_type == "tool_hint" {
+            info!(
+                target: "nanobot::bus",
+                channel = %msg.channel,
+                chat_id = %msg.chat_id,
+                msg_type,
+                content_len = msg.content.len(),
+                "outbound message sent"
+            );
+        } else {
+            info!(
+                target: "nanobot::bus",
+                channel = %msg.channel,
+                chat_id = %msg.chat_id,
+                media = msg.media.len(),
+                msg_type,
+                content_preview = %preview,
+                "outbound message sent"
+            );
+        }
         self.outbound_tx
             .send(msg)
             .map(|_| ())
