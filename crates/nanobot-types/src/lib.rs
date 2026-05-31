@@ -90,7 +90,7 @@ mod tests {
     #[test]
     fn session_key_display() {
         let key = SessionKey::new("telegram", "123456");
-        assert_eq!(format!("{}", key), "telegram:123456");
+        assert_eq!(key.as_str(), "telegram:123456");
     }
 
     #[test]
