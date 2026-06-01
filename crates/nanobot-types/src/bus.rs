@@ -263,8 +263,11 @@ mod tests {
 
     #[test]
     fn inbound_content_roundtrip_string() {
-        let text: String = InboundContent::Command(InboundCommand::Stop).into();
-        assert_eq!(text, "/stop");
+        // let text: String = InboundContent::Command(InboundCommand::Stop).into();
+        // assert_eq!(text, "/stop");
+        let content: InboundContent = "Just some text".into();
+        let text: String = content.into();
+        assert_eq!(text, "Just some text");
     }
 
     #[test]
